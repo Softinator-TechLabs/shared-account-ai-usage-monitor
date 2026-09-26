@@ -8,7 +8,7 @@ import (
 // Expire uses archive receipt time, not a guessed time of human work. It deletes
 // all revisions and their attached discussions once a source is wholly expired.
 func (s *Store) Expire(ctx context.Context) error {
-	rows, e := s.DB.Query(ctx, `SELECT s.workspace,s.source_ref FROM tm_snapshots s JOIN tm_policies p ON p.workspace=s.workspace WHERE (p.body->>'retention_days')::int>0 GROUP BY s.workspace,s.source_ref,p.body HAVING max(s.received_at)<now()-make_interval(days => (p.body->>'retention_days')::int)`)
+	rows, e := s.DB.Query(ctx, `SELECT s.workspace,s.source_ref FROM (SELECT workspace,source_ref,received_at FROM tm_snapshots UNION ALL SELECT workspace,source_ref,received_at FROM tm_usage) s JOIN tm_policies p ON p.workspace=s.workspace WHERE (p.body->>'retention_days')::int>0 GROUP BY s.workspace,s.source_ref,p.body HAVING max(s.received_at)<now()-make_interval(days => (p.body->>'retention_days')::int)`)
 	if e != nil {
 		return e
 	}

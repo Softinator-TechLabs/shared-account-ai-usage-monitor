@@ -23,6 +23,7 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql://telemetry:${POSTGRES_PASSWORD}@db:5432/telemetry?sslmode=disable
+      VIEWER_ENCRYPTION_KEY: ${VIEWER_ENCRYPTION_KEY:-}
       PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:?Set the HTTPS origin}
       TEAM_WORKSPACE: ${TEAM_WORKSPACE:-team}
       AUTH_MODE: ${AUTH_MODE:-password}

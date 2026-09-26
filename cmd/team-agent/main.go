@@ -39,7 +39,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: team-agent enroll|run|once|quota-run|quota-once|status|policy|ack|discard-queue|discard-quota-queue --config FILE")
+		return errors.New("usage: team-agent enroll|run|once|analytics-run|analytics-once|quota-run|quota-once|status|policy|ack|discard-queue|discard-quota-queue --config FILE")
 	}
 	command := os.Args[1]
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
@@ -100,10 +100,10 @@ func run() error {
 		return errors.New("declared_account cannot identify historical prompts; remove it and manage assignments centrally")
 	}
 	if command == "ack" || command == "discard-queue" || command == "discard-quota-queue" {
-		for _, suffix := range []string{".lock", ".quota.lock"} {
+		for _, suffix := range []string{".lock", ".quota.lock", ".analytics.lock"} {
 			lock := *path + suffix
 			if e = os.Mkdir(lock, 0700); e != nil {
-				return errors.New("pause both collectors before changing policy or discarding queues")
+				return errors.New("pause all collectors before changing policy or discarding queues")
 			}
 			defer os.Remove(lock)
 		}
@@ -113,6 +113,42 @@ func run() error {
 		return e
 	}
 	q := &spool.Queue{Dir: *path + ".queue", MaxBytes: 1 << 30}
+	if command == "analytics-run" || command == "analytics-once" {
+		var secret string
+		if cfg.UpstreamTokenFile != "" {
+			body, err := os.ReadFile(cfg.UpstreamTokenFile)
+			if err != nil {
+				return err
+			}
+			secret = strings.TrimSpace(string(body))
+		}
+		av, err := agentsview.New(cfg.Upstream, secret)
+		if err != nil {
+			return err
+		}
+		lock := *path + ".analytics.lock"
+		if err = os.Mkdir(lock, 0700); err != nil {
+			return errors.New("analytics collector already running or stale lock")
+		}
+		defer os.Remove(lock)
+		for {
+			stats, err := cl.UsageCycle(ctx, av, *path+".analytics.checkpoint.json", cfg.Policy.Version)
+			log.Printf("Analytics sources: scanned=%d uploaded=%d unchanged=%d suppressed=%d", stats.Scanned, stats.Uploaded, stats.Skipped, stats.Suppressed)
+			if command == "analytics-once" {
+				return err
+			}
+			if err != nil {
+				log.Print(err)
+			}
+			timer := time.NewTimer(5 * time.Minute)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil
+			case <-timer.C:
+			}
+		}
+	}
 	if command == "quota-run" || command == "quota-once" {
 		if len(cfg.CodexProfiles) == 0 {
 			cfg.CodexProfiles = companion.DefaultCodexProfile()
@@ -157,7 +193,11 @@ func run() error {
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Queued revisions: %d; quota observations: %d; acknowledged policy: %d\n", len(rows), len(quotaRows), cfg.Policy.Version)
+		usage, suppressed, err := companion.UsageCheckpointCounts(*path + ".analytics.checkpoint.json")
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Queued revisions: %d; quota observations: %d; analytics acknowledged sources: %d; analytics suppressed sources: %d; acknowledged policy: %d\n", len(rows), len(quotaRows), usage, suppressed, cfg.Policy.Version)
 		return nil
 	case "policy":
 		p, e := cl.Policy(ctx)

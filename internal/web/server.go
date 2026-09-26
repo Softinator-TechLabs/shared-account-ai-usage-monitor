@@ -154,6 +154,7 @@ func (s *Server) cookie(w http.ResponseWriter, value string, age int) {
 }
 func (s *Server) routes() {
 	s.quotaRoutes()
+	s.usageRoutes()
 	s.passwordRoutes()
 	s.debugRoutes()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

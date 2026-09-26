@@ -18,3 +18,5 @@
 - [Compatibility matrix](../compatibility/support-matrix.json)
 
 Runtime transcripts and organization-specific profiles belong in the private archive/management repository, not this source tree. Derived work reviews cite immutable session revisions and actual repository evidence.
+
+- [People and project analytics](team-analytics.md): device-observed daily tokens, provider accounts, per-device viewers and read-only MCP.

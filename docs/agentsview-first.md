@@ -71,3 +71,7 @@ Pin upstream releases; test recorded API fixtures and synthetic end-to-end fidel
 - [Codex App Server protocol](https://learn.chatgpt.com/docs/app-server)
 
 Research checked 2026-09-26; local command availability and one read-only Codex probe are recorded separately from unperformed central/device gates. Follow the [implementation plan](superpowers/plans/2026-09-26-agentsview-first.md). Do not mark migration complete until those gates have receipts.
+
+## Later approved analytics boundary · 2026-09-26
+
+The owner prioritized employee/project token analytics in this workspace and its MCP, retaining AgentsView for conversations. [Team analytics](team-analytics.md) reuses public upstream normalized usage rows; this supersedes the earlier prohibition on team-specific analytics aggregation, while retaining the no-parser-fork and no-competing-reader boundaries. Central AgentsView device isolation remains a separate failed gate.

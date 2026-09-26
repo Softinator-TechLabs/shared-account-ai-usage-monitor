@@ -11,7 +11,7 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintln(os.Stderr, "Choose install, pause or resume")
+		fmt.Fprintln(os.Stderr, "Choose install, upgrade, pause, resume or uninstall")
 		os.Exit(1)
 	}
 	f := flag.NewFlagSet(os.Args[1], flag.ExitOnError)
@@ -30,11 +30,11 @@ func main() {
 	case "install":
 		e = macsetup.Install(ctx, home, *resources, *file, *server, *ack, func(s string) { fmt.Println(s) })
 	case "pause", "resume":
-		for _, name := range []string{"quota", "companion", "agentsview"} {
-			if e = macsetup.Service(ctx, home, name, os.Args[1] == "resume"); e != nil {
-				break
-			}
-		}
+		e = macsetup.SetServices(ctx, home, os.Args[1] == "resume")
+	case "upgrade":
+		e = macsetup.Upgrade(ctx, home, *resources)
+	case "uninstall":
+		e = macsetup.Uninstall(ctx, home)
 	default:
 		e = fmt.Errorf("unknown setup action")
 	}
