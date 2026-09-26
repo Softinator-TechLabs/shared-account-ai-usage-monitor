@@ -19,7 +19,7 @@ Checkpoints advance only after a durable server acknowledgement. The worker chec
 
 ## AgentsView links
 
-Managers can configure an origin and optional access key per enrolled device in Workspace. URL and key are separate controls; keys are never included in links, ordinary device JSON or MCP. The key is AES-256-GCM encrypted at rest, tied to device and origin. The API preserves a key when the `key` property is omitted; explicit `key: ""` clears it (the UI has a separate clear checkbox). Changing the origin clears its old key unless a new key is provided. Only human managers and the device's own person can reveal it; read/debug/device tokens cannot.
+Managers can configure an origin and optional access key per enrolled device in Workspace. URL and key are separate controls; keys are never included in links, ordinary device JSON or MCP. The key is AES-256-GCM encrypted at rest, tied to device and origin. The API preserves a key when the `key` property is omitted; explicit `key: ""` clears it (the UI preserves a blank key on the same origin; clearing the URL removes both). Changing the origin clears its old key unless a new key is provided. Only human managers and the device's own person can reveal it; read/debug/device tokens cannot.
 
 Set `VIEWER_ENCRYPTION_KEY` to a base64-encoded random 32-byte key before storing viewer credentials. Keep it in your deployment secret store and encrypted backup; losing it makes saved viewer keys unreadable. Do not rotate it without migrating existing ciphertext. Empty is allowed when viewer credential storage is unused.
 
