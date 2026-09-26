@@ -36,10 +36,13 @@ test("synthetic login, full session, prompt feedback and mobile navigation", asy
   await page.getByLabel("Search sessions").fill("duplicate charge");
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await page.locator(".session-link").first().click();
+  await page.locator(".transcript > summary").click();
   await expect(
-    page.getByText("Checkout ki duplicate charge bug fix karo.", {
-      exact: false,
-    }),
+    page
+      .locator(".message-preview")
+      .getByText("Checkout ki duplicate charge bug fix karo.", {
+        exact: false,
+      }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Discuss message 1" }).click();
   await page.getByLabel("Review type").selectOption("prompt_rating");
@@ -213,7 +216,8 @@ test("session permalink survives reload", async ({ page }) => {
   await expect(page).toHaveURL(/#session\//);
   const url = page.url();
   await page.reload();
-  await expect(page.locator("#conversation .message").first()).toBeVisible();
+  await expect(page.locator(".work-summary")).toBeVisible();
+  await expect(page.locator(".transcript")).not.toHaveAttribute("open", "");
   await expect(page).toHaveURL(url);
 });
 
@@ -246,6 +250,8 @@ test("seven-day agent link opens a read-only session and can be revoked", async 
   ).toBeHidden();
   await agent.getByRole("button", { name: "Sessions", exact: true }).click();
   await agent.locator(".session-link").first().click();
+  await agent.locator(".transcript > summary").click();
+  await agent.getByRole("button", { name: "Discuss message 1" }).click();
   await expect(
     agent.getByRole("button", { name: "Post review", exact: true }),
   ).toBeDisabled();

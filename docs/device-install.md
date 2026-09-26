@@ -1,5 +1,8 @@
 # Device companion
 
+For macOS, start with **People → Connect device**. Download the Apple-silicon or Intel app, then open its private `.aiusage` connection file. The app shows policy and installs the required services. See [onboarding details and preview limitations](device-and-activity.md). The CLI below remains available for advanced use and Windows/Ubuntu.
+
+
 1. Install the pinned official AgentsView release separately; verify its published checksum. Configure only the native profile roots agreed for collection. Bind its daemon to loopback and require authentication. For full available tool content, use `archive_content = "full"` and `result_content_blocked_categories = []`. Upstream source omissions remain explicit limitations.
 2. Build/download the matching `team-agent` binary. Keep it, its configuration and queue under the employee's private OS account. POSIX permissions are set to 0700/0600; on Windows restrict the directory ACL to that user with the normal Windows security settings. The app is visible and has an explicit status command.
 3. Owner creates the member's device invitation in Workspace and privately provides the downloaded file. Employee reads its policy. Enroll with the exact acknowledged version:

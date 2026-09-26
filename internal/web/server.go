@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -194,6 +195,23 @@ func (s *Server) routes() {
 		s.cookie(w, "", -1)
 		write(w, map[string]bool{"ok": true})
 	})
+	s.human("GET /api/v1/dashboard", func(w http.ResponseWriter, r *http.Request, p c.Principal) {
+		days := 14
+		if raw := r.URL.Query().Get("days"); raw != "" {
+			var e error
+			days, e = strconv.Atoi(raw)
+			if e != nil {
+				fail(w, c.ErrInvalid)
+				return
+			}
+		}
+		d, e := s.store.Dashboard(r.Context(), p, days, time.Now())
+		if e != nil {
+			fail(w, e)
+			return
+		}
+		write(w, d)
+	})
 	s.human("GET /api/v1/me", func(w http.ResponseWriter, r *http.Request, p c.Principal) {
 		policy, e := s.store.Policy(r.Context(), p.Workspace)
 		if e != nil {
@@ -317,7 +335,7 @@ func (s *Server) routes() {
 			fail(w, e)
 			return
 		}
-		write(w, map[string]any{"invitation": inv, "policy": policy})
+		write(w, map[string]any{"invitation": inv, "policy": policy, "server": s.config.Origin, "person": v.Person})
 	})
 	s.mux.HandleFunc("POST /api/v1/enroll", func(w http.ResponseWriter, r *http.Request) {
 		var v struct {

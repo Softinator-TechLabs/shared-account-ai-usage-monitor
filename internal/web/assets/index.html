@@ -36,6 +36,73 @@
     </header>
     <div id="policy-banner" class="policy-banner" hidden></div>
     <div id="feedback" role="status" aria-live="polite"></div>
+    <dialog id="device-dialog" aria-labelledby="device-title">
+      <div class="dialog-heading">
+        <h2 id="device-title">Connect a Mac</h2>
+        <button id="close-device" aria-label="Close device setup">Close</button>
+      </div>
+      <p id="device-person" class="muted"></p>
+      <ol class="setup-steps">
+        <li>
+          <h3>Install the Mac app</h3>
+          <p>
+            Download, unzip and open <strong>AI Usage Monitor</strong>. It
+            installs AgentsView and the background sync service for you.
+          </p>
+          <div class="download-options">
+            <a
+              class="download-primary"
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.2.0-preview/AI-Usage-Monitor-mac-arm64.zip"
+              >Download for Apple silicon</a
+            ><a
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.2.0-preview/AI-Usage-Monitor-mac-amd64.zip"
+              >Intel Mac</a
+            >
+          </div>
+          <small
+            >Preview build · macOS 13+. Not notarized yet; macOS may require
+            approval in Privacy &amp; Security.</small
+          >
+        </li>
+        <li>
+          <h3>Open your connection file</h3>
+          <p>
+            Open this file with the Mac app. It connects the device to the
+            person above. No editing or terminal commands.
+          </p>
+          <button class="primary" id="download-connection">
+            Download connection file</button
+          ><small
+            >Private, single use, valid for 24 hours. Share only with this
+            person.</small
+          >
+        </li>
+        <li>
+          <h3>Confirm and connect</h3>
+          <p>
+            Review the collection policy in the app and choose
+            <strong>Agree &amp; connect</strong>. Return here to check the
+            connection.
+          </p>
+          <button id="check-device">Check connection</button>
+          <p id="connection-status" role="status"></p>
+        </li>
+      </ol>
+      <details>
+        <summary>Windows, Ubuntu or an existing JSON file?</summary>
+        <p>
+          The existing JSON file is a private device invitation. The Mac app can
+          open it too; enter this workspace address if asked. Windows and Ubuntu
+          currently use the CLI setup guide.
+        </p>
+        <a
+          href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/blob/main/docs/device-install.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Device setup guide</a
+        >
+      </details>
+    </dialog>
     <main id="main">
       <section id="login" hidden>
         <div class="login-art" aria-hidden="true">
@@ -138,6 +205,27 @@
             ><small>Download and share privately. Valid for 24 hours.</small>
           </form>
         </section>
+        <section class="analytics" aria-label="Workspace activity">
+          <div class="analytics-heading">
+            <h2>Workspace activity</h2>
+            <div class="analytics-controls">
+              <label
+                ><span class="sr-only">Activity period</span
+                ><select id="activity-period">
+                  <option value="7">Last 7 days</option>
+                  <option value="14" selected>Last 14 days</option>
+                  <option value="30">Last 30 days</option>
+                  <option value="90">Last 90 days</option>
+                </select></label
+              ><button id="refresh-dashboard" aria-label="Refresh activity">
+                Refresh
+              </button>
+            </div>
+          </div>
+          <div id="dashboard-content" aria-live="polite">
+            <p>Loading activity…</p>
+          </div>
+        </section>
         <div class="people-toolbar">
           <div class="directory-tabs">
             <strong
@@ -153,22 +241,6 @@
           /></label>
         </div>
         <div id="people-list" class="people-grid"></div>
-        <div class="connection-note">
-          <div>
-            <h2>One account. More context.</h2>
-            <p>Connect each device to see the conversations behind the work.</p>
-            <button id="view-sessions" class="text-button">
-              Explore sessions
-            </button>
-          </div>
-          <img
-            src="/shared-workspace.png"
-            width="1536"
-            height="1024"
-            alt="Two laptops connected through a shared conversation hub"
-            loading="lazy"
-          />
-        </div>
       </section>
       <section id="activity" hidden>
         <div class="page-heading">

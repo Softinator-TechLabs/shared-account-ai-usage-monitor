@@ -157,6 +157,23 @@ func run() error {
 			}
 		}
 	}()
+	go func() {
+		ticker := time.NewTicker(15 * time.Second)
+		defer ticker.Stop()
+		for {
+			work, done := context.WithTimeout(ctx, 30*time.Second)
+			err := db.BackfillMetrics(work, 10)
+			done()
+			if err != nil && ctx.Err() == nil {
+				log.Print("dashboard indexing pending; retrying")
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
 	app, e := web.New(ctx, db, web.Config{Origin: origin, Workspace: workspace, Demo: *demo, AuthMode: os.Getenv("AUTH_MODE"), Issuer: os.Getenv("OIDC_ISSUER"), ClientID: os.Getenv("OIDC_CLIENT_ID"), ClientSecret: os.Getenv("OIDC_CLIENT_SECRET")})
 	if e != nil {
 		return e

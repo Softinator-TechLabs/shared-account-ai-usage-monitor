@@ -254,3 +254,7 @@ The Add person panel unfolds over 320ms using `cubic-bezier(0.16, 1, 0.3, 1)`, w
 - **Don't** promote decorative eyebrow headings, colored card edges or hard offset shadows into this system.
 - **Don't** inherit breakpoint omissions as design conventions.
 - **Don't** let supporting imagery compete with the primary evidence-reading surface.
+
+## September 26 refinement: measured activity and device setup
+
+The People connection illustration is removed at the owner's request. A single analytics section uses a daily bar plot and aligned project/model/client breakdowns, period selection and a coverage disclosure. The login image remains. A focused device-setup dialog explains the actual download → connection-file → policy acknowledgement sequence. The native Mac setup app follows AppKit conventions. Session pages lead with work context and structured file evidence; transcripts and individual messages expand only on demand. This is an implementation refinement, not a new approved brand direction.

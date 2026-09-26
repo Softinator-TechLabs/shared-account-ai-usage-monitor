@@ -158,6 +158,9 @@ func (s *Store) Accept(ctx context.Context, p c.Principal, v c.Snapshot) (c.Sess
 	if err = json.Unmarshal(saved, &row.Snapshot); err != nil {
 		return empty, err
 	}
+	if err = putMetrics(ctx, tx, row.ID, row.Snapshot); err != nil {
+		return empty, err
+	}
 	if err = tx.Commit(ctx); err != nil {
 		return empty, err
 	}

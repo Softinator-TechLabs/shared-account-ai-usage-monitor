@@ -44,19 +44,21 @@ type Message struct {
 	Raw       json.RawMessage `json:"raw,omitempty"`
 }
 type Snapshot struct {
-	SchemaVersion int             `json:"schema_version"`
-	SourceRef     string          `json:"source_ref"`
-	Revision      string          `json:"revision"`
-	PolicyVersion int             `json:"policy_version"`
-	Client        string          `json:"client"`
-	Project       string          `json:"project"`
-	Branch        string          `json:"branch,omitempty"`
-	Account       string          `json:"account,omitempty"`
-	AccountMethod string          `json:"account_method"`
-	StartedAt     string          `json:"started_at,omitempty"`
-	Coverage      string          `json:"coverage"`
-	Messages      []Message       `json:"messages"`
-	Raw           json.RawMessage `json:"raw,omitempty"`
+	ToolCalls     []json.RawMessage `json:"tool_calls,omitempty"`
+	ToolCoverage  string            `json:"tool_coverage,omitempty"`
+	SchemaVersion int               `json:"schema_version"`
+	SourceRef     string            `json:"source_ref"`
+	Revision      string            `json:"revision"`
+	PolicyVersion int               `json:"policy_version"`
+	Client        string            `json:"client"`
+	Project       string            `json:"project"`
+	Branch        string            `json:"branch,omitempty"`
+	Account       string            `json:"account,omitempty"`
+	AccountMethod string            `json:"account_method"`
+	StartedAt     string            `json:"started_at,omitempty"`
+	Coverage      string            `json:"coverage"`
+	Messages      []Message         `json:"messages"`
+	Raw           json.RawMessage   `json:"raw,omitempty"`
 }
 type Session struct {
 	Snapshot
