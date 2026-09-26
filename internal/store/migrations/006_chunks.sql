@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS tm_chunks(workspace text NOT NULL,device text NOT NULL,hash text NOT NULL,part integer NOT NULL,total integer NOT NULL,body bytea NOT NULL,created_at timestamptz NOT NULL DEFAULT now(),PRIMARY KEY(workspace,device,hash,part));

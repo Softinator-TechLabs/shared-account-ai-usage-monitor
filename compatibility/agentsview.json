@@ -1,0 +1,22 @@
+{
+  "version": "0.44.0",
+  "source_commit": "413a87f7bfbd67b2815b1119ac51abc1efbeeaba",
+  "platforms": {
+    "darwin_arm64": {
+      "sha256": "b21fdf093e631237e39d33ab80fe50fbc799e0bac11ac8ede8e0dc988ae12303",
+      "url": "https://github.com/kenn-io/agentsview/releases/download/v0.44.0/agentsview_0.44.0_darwin_arm64.tar.gz"
+    }
+  },
+  "contract": "documented REST Session API",
+  "required_settings": {
+    "archive_content": "full",
+    "result_content_blocked_categories": []
+  },
+  "synthetic_probe": {
+    "os": "macOS arm64",
+    "client": "codex",
+    "prompt_characters": 29000,
+    "intact": true
+  },
+  "full_native_rollout_verified": false
+}

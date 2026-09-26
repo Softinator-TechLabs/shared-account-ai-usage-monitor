@@ -1,0 +1,1 @@
+ALTER TABLE tm_tokens ADD COLUMN IF NOT EXISTS label text NOT NULL DEFAULT '';

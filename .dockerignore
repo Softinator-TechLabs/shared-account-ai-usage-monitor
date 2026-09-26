@@ -1,0 +1,10 @@
+node_modules
+.local
+.env
+.env.*
+!deploy/.env.example
+test-results
+playwright-report
+*.jsonl
+*.queue
+*.lock

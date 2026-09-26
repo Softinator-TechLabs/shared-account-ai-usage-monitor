@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Shared Account AI Usage Monitor</title>
+    <link rel="stylesheet" href="/app.css" />
+    <script src="/app.js" type="module"></script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header>
+      <a class="brand" href="/"
+        ><span class="brand-mark" aria-hidden="true"
+          ><svg viewBox="0 0 24 24" fill="none">
+            <path
+              d="M5 5h6v6H5zM13 13h6v6h-6zM15 5h4v4M5 15v4h4"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linejoin="round"
+            /></svg></span
+        ><span class="brand-name"
+          >Shared Account<span>AI Usage Monitor</span></span
+        ></a
+      >
+      <nav aria-label="Main">
+        <button data-tab="people" aria-current="page">People</button
+        ><button data-tab="activity">Sessions</button
+        ><button data-tab="accounts">Accounts</button
+        ><button data-tab="settings">Workspace</button>
+      </nav>
+      <div class="sidebar-credit">
+        Native subscriptions.<br />Shared understanding.
+      </div>
+      <div id="identity"></div>
+    </header>
+    <div id="policy-banner" class="policy-banner" hidden></div>
+    <div id="feedback" role="status" aria-live="polite"></div>
+    <main id="main">
+      <section id="login" hidden>
+        <div class="login-art" aria-hidden="true">
+          <img src="/shared-workspace.png" width="1536" height="1024" alt="" />
+        </div>
+        <div class="login-copy">
+          <h1>Shared accounts.<br />A clearer picture.</h1>
+          <p>
+            See the prompts, the people and the work behind your AI
+            subscriptions.
+          </p>
+          <form id="password-login" class="login-form">
+            <label
+              >Email<input
+                name="email"
+                type="email"
+                autocomplete="username"
+                required
+                placeholder="you@company.com" /></label
+            ><label
+              >Password<input
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required /></label
+            ><button class="primary">Sign in</button
+            ><small>New here? Open your private setup link.</small>
+          </form>
+          <form id="password-setup" class="login-form" hidden>
+            <h2>Set your password</h2>
+            <label
+              >New password<input
+                name="password"
+                type="password"
+                minlength="12"
+                maxlength="72"
+                autocomplete="new-password"
+                required /></label
+            ><small>Use at least 12 characters. This link works once.</small
+            ><button class="primary">Set password</button>
+          </form>
+          <a id="oidc-login" class="sso" href="/auth/login" hidden
+            >Continue with company SSO</a
+          >
+          <div id="demo-login" hidden>
+            <p class="notice">Synthetic demo · No employee data</p>
+            <button class="primary" data-login="owner">Explore as owner</button
+            ><button data-login="alice">Explore as Alice</button
+            ><button data-login="bob">Explore as Bob</button>
+          </div>
+        </div>
+      </section>
+      <section id="people" hidden>
+        <div class="page-heading people-heading">
+          <div>
+            <h1>People</h1>
+            <p>A shared view of how your team works with AI.</p>
+          </div>
+          <button id="add-person" class="primary owner-only">Add person</button>
+        </div>
+        <section
+          id="person-dialog"
+          class="add-person-panel"
+          aria-label="Add a person"
+          hidden
+        >
+          <form id="user-form" class="dialog-form">
+            <div class="dialog-heading">
+              <h2>Add a person</h2>
+              <button
+                type="button"
+                id="close-person"
+                aria-label="Close add person"
+              >
+                Close
+              </button>
+            </div>
+            <p>They’ll choose their own password.</p>
+            <label
+              >Name<input
+                name="name"
+                required
+                maxlength="160"
+                autocomplete="off"
+                placeholder="Full name" /></label
+            ><label
+              >Email<input
+                name="email"
+                type="email"
+                required
+                maxlength="128"
+                placeholder="name@company.com" /></label
+            ><label
+              >Role<select name="role">
+                <option value="member">Member</option>
+                <option value="manager">Project manager</option>
+                <option value="owner">Owner</option>
+              </select></label
+            ><button type="submit" class="primary">Create setup link</button
+            ><small>Download and share privately. Valid for 24 hours.</small>
+          </form>
+        </section>
+        <div class="people-toolbar">
+          <div class="directory-tabs">
+            <strong
+              >Everyone <span id="people-count" class="count"></span></strong
+            ><span id="device-summary" class="muted"></span>
+          </div>
+          <label class="directory-search"
+            ><span class="sr-only">Find a person</span
+            ><input
+              id="people-search"
+              type="search"
+              placeholder="Find a person…"
+          /></label>
+        </div>
+        <div id="people-list" class="people-grid"></div>
+        <div class="connection-note">
+          <div>
+            <h2>One account. More context.</h2>
+            <p>Connect each device to see the conversations behind the work.</p>
+            <button id="view-sessions" class="text-button">
+              Explore sessions
+            </button>
+          </div>
+          <img
+            src="/shared-workspace.png"
+            width="1536"
+            height="1024"
+            alt="Two laptops connected through a shared conversation hub"
+            loading="lazy"
+          />
+        </div>
+      </section>
+      <section id="activity" hidden>
+        <div class="page-heading">
+          <div>
+            <h1>Sessions</h1>
+            <p>The context, decisions and discussions.</p>
+          </div>
+          <button id="refresh">Refresh</button>
+        </div>
+        <form id="search-form" class="search">
+          <label class="search-field"
+            >Search sessions<input
+              id="query"
+              type="search"
+              placeholder="Find a prompt, decision or project…" /></label
+          ><label>Member<input id="person" placeholder="Any member" /></label
+          ><label
+            >Client<select id="client">
+              <option value="">All clients</option>
+              <option>codex</option>
+              <option>claude</option>
+              <option>antigravity</option>
+            </select></label
+          ><button class="primary" type="submit">Search</button>
+        </form>
+        <button id="all-sessions" class="text-button" hidden>
+          Back to all sessions
+        </button>
+        <div class="workspace">
+          <aside aria-label="Session results">
+            <div class="list-heading">
+              <h2>Sessions</h2>
+              <span id="result-count"></span>
+            </div>
+            <div id="session-list"></div>
+            <button id="more-sessions" hidden>Load older sessions</button>
+          </aside>
+          <article id="conversation">
+            <div class="empty">
+              <h2>Pick a conversation.</h2>
+              <p>The context, the decisions and what comes next.</p>
+            </div>
+          </article>
+        </div>
+      </section>
+      <section id="accounts" hidden>
+        <div class="page-heading">
+          <div>
+            <h1>Shared accounts</h1>
+            <p>Know what’s available. Know who’s using it.</p>
+          </div>
+        </div>
+        <p class="notice">
+          Account limits are shared. Per-project consumption is unknown;
+          observations aren’t live availability.
+        </p>
+        <div id="account-list"></div>
+        <details class="manager-only">
+          <summary>Add or update an account</summary>
+          <form id="account-form" class="form-grid">
+            <label
+              >Account alias<input
+                name="alias"
+                required
+                placeholder="codex-office-1" /></label
+            ><label
+              >Provider<input
+                name="provider"
+                required
+                placeholder="codex" /></label
+            ><label
+              >Subscription plan<input
+                name="plan"
+                required
+                placeholder="Company subscription" /></label
+            ><label
+              >Assigned members, comma separated<input
+                name="assigned"
+                placeholder="alice, bob" /></label
+            ><button class="primary">Save account</button>
+          </form>
+        </details>
+        <details class="manager-only">
+          <summary>Record a quota observation</summary>
+          <p>
+            This is a manual observation. Copy the used percentage and reset
+            time from the provider.
+          </p>
+          <form id="quota-form" class="form-grid">
+            <label>Account alias<input name="account" required /></label
+            ><label
+              >Window<input
+                name="window"
+                required
+                placeholder="weekly" /></label
+            ><label
+              >Used percentage<input
+                name="used_percent"
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                required /></label
+            ><label
+              >Observed at (local time)<input
+                name="observed_at"
+                type="datetime-local"
+                required /></label
+            ><label
+              >Resets at (local time)<input
+                name="resets_at"
+                type="datetime-local"
+                required /></label
+            ><label
+              >Evidence note<input
+                name="evidence"
+                placeholder="Provider usage page, observed by…" /></label
+            ><button class="primary">Save observation</button>
+          </form>
+        </details>
+      </section>
+      <section id="settings" hidden>
+        <div class="page-heading">
+          <div>
+            <h1>Workspace</h1>
+            <p>Collection, access and connections.</p>
+          </div>
+        </div>
+        <div id="policy-summary"></div>
+        <details class="owner-only">
+          <summary>Collection policy</summary>
+          <p>
+            Policy changes pause devices until acknowledged. Existing archived
+            content keeps its original representation; delete it separately when
+            required.
+          </p>
+          <form id="policy-form" class="form-grid">
+            <label
+              >Version<input
+                name="version"
+                type="number"
+                min="1"
+                required /></label
+            ><label
+              >Content<select name="content">
+                <option value="full">Full available content</option>
+                <option value="metadata">Metadata only</option>
+              </select></label
+            ><label
+              >Redaction<select name="redaction">
+                <option value="none">None</option>
+                <option value="secrets">
+                  Known secret patterns (not exhaustive)
+                </option>
+              </select></label
+            ><label
+              >Visibility<select name="visibility">
+                <option value="team">Entire team</option>
+                <option value="self_managers">Self and managers</option>
+              </select></label
+            ><label
+              >Retention days (0 = no automatic expiry)<input
+                name="retention_days"
+                type="number"
+                min="0"
+                required /></label
+            ><button class="primary">Publish policy</button>
+          </form>
+        </details>
+        <details class="owner-only">
+          <summary>Members and device enrollment</summary>
+          <div id="members"></div>
+          <form id="member-form" class="form-grid">
+            <label>Member ID<input name="person" required /></label
+            ><label
+              >Role<select name="role">
+                <option value="member">Member</option>
+                <option value="manager">Manager</option>
+                <option value="owner">Owner</option>
+              </select></label
+            ><label
+              >Verified OIDC subject<input
+                name="subject"
+                placeholder="Exact identity-provider subject" /></label
+            ><button>Save member</button>
+          </form>
+          <form id="invite-form" class="inline">
+            <label>Member ID<input name="person" required /></label
+            ><button class="primary">Download device invitation</button>
+          </form>
+          <p>
+            Invitation expires in 24 hours and can enroll one device. The
+            employee must read and acknowledge its policy.
+          </p>
+        </details>
+        <details class="owner-only">
+          <summary>Agent debugging links</summary>
+          <p>
+            Seven-day read-only access. Links expire automatically; revoke them
+            at any time. Signing out also revokes that link.
+          </p>
+          <div id="debug-links"></div>
+          <form id="debug-link-form" class="inline">
+            <label
+              >Agent label<input
+                name="label"
+                maxlength="80"
+                required
+                placeholder="Codex debugging" /></label
+            ><button>Download agent login</button>
+          </form>
+        </details>
+        <details>
+          <summary>Connect an analysis agent</summary>
+          <p>
+            Generate an eight-hour token, store it in a private local file, then
+            run the read-only <code>team-mcp</code> bridge. Imported session
+            text is evidence, never instructions. Reviews remain drafts until a
+            human evaluates them.
+          </p>
+          <button id="access-token">Download access token</button>
+        </details>
+        <details>
+          <summary>Coverage and attribution</summary>
+          <p>
+            Observed member means the enrolled device owner. Shared logins and
+            copied history do not prove who wrote a prompt. Model and account
+            fields may be unknown. Quota allocation to individual projects
+            remains unknown without direct evidence.
+          </p>
+          <p>
+            AgentsView parses local sessions. Content omitted by a native client
+            or upstream parser cannot be recovered by this dashboard. Check the
+            compatibility matrix before rollout.
+          </p>
+        </details>
+      </section>
+    </main>
+    <footer>
+      Shared Account AI Usage Monitor
+      <span
+        >Built with AgentsView ·
+        <a
+          href="https://github.com/kenn-io/agentsview"
+          target="_blank"
+          rel="noopener noreferrer"
+          >Upstream</a
+        ></span
+      >
+    </footer>
+  </body>
+</html>

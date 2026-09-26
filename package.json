@@ -1,0 +1,12 @@
+{
+  "name": "shared-account-ai-usage-monitor",
+  "private": true,
+  "scripts": {
+    "test:ui": "playwright test",
+    "format:check": "prettier --check internal/web/assets/*.{html,css,js} tests/browser/*.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "prettier": "^3.9.9"
+  }
+}

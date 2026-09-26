@@ -1,0 +1,1 @@
+CREATE TABLE IF NOT EXISTS tm_analysis_runs(digest text PRIMARY KEY,workspace text NOT NULL,session_id text NOT NULL REFERENCES tm_snapshots(id) ON DELETE CASCADE,ordinal integer NOT NULL,requested_by text NOT NULL,engine text NOT NULL,policy_version integer NOT NULL,expires_at timestamptz NOT NULL,consumed boolean NOT NULL DEFAULT false);

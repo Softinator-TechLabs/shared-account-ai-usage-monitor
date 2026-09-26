@@ -1,0 +1,18 @@
+{
+  "verified_synthetic": [
+    {
+      "os": "macOS arm64",
+      "client": "Codex JSONL",
+      "agentsview": "0.44.0",
+      "text": "complete for supplied synthetic fixture"
+    }
+  ],
+  "unverified": [
+    "employee attribution",
+    "Cockpit switches",
+    "Antigravity full history",
+    "Windows",
+    "Ubuntu",
+    "real employee enrollment"
+  ]
+}

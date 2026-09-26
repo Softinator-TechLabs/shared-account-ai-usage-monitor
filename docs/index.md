@@ -1,0 +1,15 @@
+# Product navigation
+
+- [Start and demo](../README.md)
+- [Deployment and OIDC](deployment.md)
+- [Device enrollment and lifecycle](device-install.md)
+- [Architecture / evidence boundaries](architecture.md)
+- [Agent coaching and MCP](coaching.md)
+- [Verification and failure fixtures](verification.md)
+- [Current delivery status](status.md)
+- [Decisions](decisions.md)
+- [Security](../SECURITY.md)
+- [Contribution workflow](../CONTRIBUTING.md)
+- [Compatibility matrix](../compatibility/support-matrix.json)
+
+Runtime transcripts and organization-specific profiles belong in the private archive/management repository, not this source tree. Derived work reviews cite immutable session revisions and actual repository evidence.
