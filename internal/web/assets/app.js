@@ -93,12 +93,19 @@ async function tab(name) {
     if (b.dataset.tab === name) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
-  if (name !== "activity") history.replaceState(null, "", "#" + name);
+  history.replaceState(
+    null,
+    "",
+    name === "activity" && state.selected
+      ? "#session/" + encodeURIComponent(state.selected.id)
+      : "#" + name,
+  );
   if (name === "people") await people();
   if (name === "accounts") await accounts();
   if (name === "settings") await settings();
 }
 async function init() {
+  document.querySelectorAll("[data-tab]").forEach((b) => (b.disabled = true));
   const initialHash = location.hash;
   if (initialHash.startsWith("#agent/")) {
     history.replaceState(null, "", location.pathname);
@@ -167,13 +174,17 @@ async function init() {
       await select(decodeURIComponent(initialHash.slice(9)));
     } else {
       await tab(
-        ["#people", "#accounts", "#settings"].includes(initialHash)
+        ["#people", "#accounts", "#settings", "#activity"].includes(initialHash)
           ? initialHash.slice(1)
           : "people",
       );
     }
   } catch (e) {
     await showLogin();
+  } finally {
+    document
+      .querySelectorAll("[data-tab]")
+      .forEach((b) => (b.disabled = false));
   }
 }
 async function showLogin() {
@@ -1070,7 +1081,9 @@ window.addEventListener("hashchange", async () => {
       const id = decodeURIComponent(location.hash.slice(9));
       await tab("activity");
       await select(id);
-    } else if (["#people", "#accounts", "#settings"].includes(location.hash))
+    } else if (
+      ["#people", "#accounts", "#settings", "#activity"].includes(location.hash)
+    )
       await tab(location.hash.slice(1));
   } catch (e) {
     notify(e.message, true);

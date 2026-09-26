@@ -90,3 +90,22 @@ test("AgentsView links stay local, carry no credentials and preserve opaque nati
   ])
     assert.throws(() => agentsViewURL(u, "id"));
 });
+
+test("separate id-less calls survive while endpoint copies are removed", () => {
+  const call = { ordinal: 2, tool_name: "Edit", input_json: "{}" };
+  for (const calls of [
+    [call, call],
+    [
+      { ...call, call_index: 0 },
+      { ...call, call_index: 1 },
+    ],
+  ]) {
+    assert.equal(
+      sessionTools({
+        messages: [{ ordinal: 2, raw: { tool_calls: calls } }],
+        tool_calls: calls,
+      }).length,
+      2,
+    );
+  }
+});

@@ -134,6 +134,13 @@ test("a session explains the request, recorded usage and links without opening J
   const permalink = page.url();
   await page.getByRole("button", { name: "People", exact: true }).click();
   await expect(page).toHaveURL(/#people$/);
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await expect(page).toHaveURL(permalink);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "Fix synthetic PDF links" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "People", exact: true }).click();
   await page.goto(permalink);
   await expect(
     page.getByRole("heading", { name: "Fix synthetic PDF links" }),

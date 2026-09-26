@@ -72,18 +72,30 @@ export function describeSession(session) {
   };
 }
 export function sessionTools(session) {
-  const seen = new Set();
   const nested = (session.messages || []).flatMap((m) =>
     (m.raw?.tool_calls || []).map((c) => ({ ...c, ordinal: m.ordinal })),
   );
-  // Nested messages may include result evidence absent from the optional tool endpoint.
-  return [...nested, ...(session.tool_calls || [])].filter((c) => {
-    if (!c || typeof c !== "object") return false;
-    const key =
-      c.tool_use_id || JSON.stringify([c.ordinal, c.tool_name, c.input_json]);
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+  const seen = new Set();
+  // Match copies between representations, preserving repeated id-less calls.
+  return [nested, session.tool_calls || []].flatMap((calls) => {
+    const occurrences = new Map();
+    return calls.filter((c) => {
+      if (!c || typeof c !== "object") return false;
+      const identity = JSON.stringify([
+        c.ordinal,
+        c.call_index ?? null,
+        c.tool_name,
+        c.input_json,
+      ]);
+      const occurrence = occurrences.get(identity) || 0;
+      occurrences.set(identity, occurrence + 1);
+      const key = c.tool_use_id
+        ? "id:" + c.tool_use_id
+        : JSON.stringify([identity, occurrence]);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   });
 }
 export function agentsViewURL(origin, source = "") {
