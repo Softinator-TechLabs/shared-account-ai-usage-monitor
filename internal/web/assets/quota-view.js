@@ -8,7 +8,12 @@ export function quotaAccounts(observations, now = Date.now()) {
     .sort((a, b) => Date.parse(b.observed_at) - Date.parse(a.observed_at));
   const latestProfiles = new Map();
   for (const row of sorted) {
-    const key = JSON.stringify([row.device, row.profile]);
+    const key = JSON.stringify([
+      row.provider,
+      row.person,
+      row.device,
+      row.profile,
+    ]);
     if (!latestProfiles.has(key)) latestProfiles.set(key, row);
   }
   const groups = new Map();
@@ -26,7 +31,10 @@ export function quotaAccounts(observations, now = Date.now()) {
     group.history.push(row);
     if (
       !group.devices.some(
-        (d) => d.device === row.device && d.profile === row.profile,
+        (d) =>
+          d.device === row.device &&
+          d.profile === row.profile &&
+          d.person === row.person,
       )
     )
       group.devices.push({
@@ -44,7 +52,15 @@ export function quotaAccounts(observations, now = Date.now()) {
       group.health = "Needs refresh";
     if (
       group.devices.some(
-        (d) => latestProfiles.get(JSON.stringify([d.device, d.profile]))?.error,
+        (d) =>
+          latestProfiles.get(
+            JSON.stringify([
+              group.latest.provider,
+              d.person,
+              d.device,
+              d.profile,
+            ]),
+          )?.error,
       )
     )
       group.health = "Read failed";
@@ -70,14 +86,19 @@ export function renderQuotas(root, rows) {
   const heading = el("div", undefined, "quota-heading");
   heading.append(
     el("h2", "Observed subscriptions"),
-    el("span", "Codex · read-only collection", "muted"),
+    el("span", "Provider account observations", "muted"),
   );
   root.append(heading);
   const latestProfiles = new Map();
   for (const row of [...rows].sort(
     (a, b) => Date.parse(b.observed_at) - Date.parse(a.observed_at),
   )) {
-    const key = JSON.stringify([row.device, row.profile]);
+    const key = JSON.stringify([
+      row.provider,
+      row.person,
+      row.device,
+      row.profile,
+    ]);
     if (!latestProfiles.has(key)) latestProfiles.set(key, row);
   }
   for (const row of latestProfiles.values()) {
@@ -85,7 +106,7 @@ export function renderQuotas(root, rows) {
       root.append(
         el(
           "p",
-          `${row.device} · ${row.profile}: Codex read failed at ${format(row.observed_at)}. Check that profile’s sign-in.`,
+          `${row.device} · ${row.profile}: ${row.provider || "Provider"} read failed at ${format(row.observed_at)}. Check that profile’s sign-in.`,
           "notice quota-read-error",
         ),
       );
@@ -96,9 +117,9 @@ export function renderQuotas(root, rows) {
       el(
         "p",
         rows.some((r) => r.error)
-          ? "Codex could not be read on the connected profile. Last attempt: " +
+          ? "The provider could not be read on the connected profile. Last attempt: " +
               format(rows[0].observed_at)
-          : "Waiting for a connected device’s first Codex observation.",
+          : "Waiting for a connected device’s first account observation.",
         "notice",
       ),
     );
@@ -120,7 +141,7 @@ export function renderQuotas(root, rows) {
     );
     card.append(
       top,
-      el("h3", latest.email),
+      el("h3", `${latest.provider} · ${latest.email}`),
       el("p", `Read ${format(latest.observed_at)}`, "muted"),
     );
     for (const win of latest.windows) {

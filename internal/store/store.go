@@ -22,7 +22,10 @@ import (
 //go:embed migrations/*.sql
 var migrations embed.FS
 
-type Store struct{ DB *pgxpool.Pool }
+type Store struct {
+	DB        *pgxpool.Pool
+	ViewerKey []byte
+}
 
 func Open(ctx context.Context, url string) (*Store, error) {
 	if url == "" {
@@ -32,7 +35,12 @@ func Open(ctx context.Context, url string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Store{DB: db}
+	key, err := viewerEnvKey()
+	if err != nil {
+		db.Close()
+		return nil, err
+	}
+	s := &Store{DB: db, ViewerKey: key}
 	if err = s.Migrate(ctx); err != nil {
 		db.Close()
 		return nil, err

@@ -177,10 +177,10 @@ func serviceAction(ctx context.Context, domain, file, target string, start bool,
 	return run(ctx, "/bin/launchctl", "bootout", target)
 }
 func Service(ctx context.Context, home, name string, start bool) error {
-	if name != "agentsview" && name != "companion" && name != "quota" {
+	if name != "agentsview" && name != "companion" && name != "quota" && name != "analytics" {
 		return errors.New("unknown background service")
 	}
-	if name == "quota" {
+	if start && (name == "quota" || name == "analytics") {
 		if _, e := os.Stat(serviceFile(home, name)); os.IsNotExist(e) {
 			return nil
 		}
@@ -309,6 +309,9 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 	if e = write(serviceFile(home, "quota"), plist(home, root, "quota", quotaargs), 0600); e != nil {
 		return e
 	}
+	if e = writeAnalyticsService(home); e != nil {
+		return e
+	}
 	// Prepare every local artifact before consuming the one-use invitation.
 	// Once enrollment saves the config, Resume can complete service startup.
 	progress("Connecting to your workspace…")
@@ -316,13 +319,7 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 		return errors.New("workspace could not accept this invitation; it may be expired or already used. Download a new connection file")
 	}
 	progress("Starting background sync…")
-	if e = Service(ctx, home, "agentsview", true); e != nil {
-		return e
-	}
-	if e = Service(ctx, home, "companion", true); e != nil {
-		return e
-	}
-	return Service(ctx, home, "quota", true)
+	return SetServices(ctx, home, true)
 }
 func hostname() string {
 	h, e := os.Hostname()

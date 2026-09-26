@@ -91,6 +91,9 @@ func (s *Store) DeleteSource(ctx context.Context, p c.Principal, source string) 
 	if _, err = tx.Exec(ctx, "INSERT INTO tm_deleted(workspace,source_ref) VALUES($1,$2) ON CONFLICT DO NOTHING", p.Workspace, source); err != nil {
 		return err
 	}
+	if _, err = tx.Exec(ctx, "DELETE FROM tm_usage WHERE workspace=$1 AND source_ref=$2", p.Workspace, source); err != nil {
+		return err
+	}
 	if _, err = tx.Exec(ctx, "DELETE FROM tm_snapshots WHERE workspace=$1 AND source_ref=$2", p.Workspace, source); err != nil {
 		return err
 	}

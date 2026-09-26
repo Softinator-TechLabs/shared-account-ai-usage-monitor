@@ -1,3 +1,4 @@
+import { renderAnalyticsPage, renderViewerSettings } from "./analytics-view.js";
 import { renderQuotas, quotaAccounts } from "./quota-view.js";
 import {
   renderOverview,
@@ -89,6 +90,7 @@ function download(name, value, type = "application/json") {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 async function tab(name) {
+  $("#analytics-page").hidden = name !== "projects";
   for (const section of ["people", "activity", "accounts", "settings"])
     $("#" + section).hidden = section !== name;
   document.querySelectorAll("[data-tab]").forEach((b) => {
@@ -102,6 +104,7 @@ async function tab(name) {
       ? "#session/" + encodeURIComponent(state.selected.id)
       : "#" + name,
   );
+  if (name === "projects") await analyticsRoute("projects");
   if (name === "people") await people();
   if (name === "accounts") await accounts();
   if (name === "settings") await settings();
@@ -172,12 +175,24 @@ async function init() {
       $("#access-token").disabled = true;
     }
     await load();
-    if (initialHash.startsWith("#session/")) {
+    if (/^#(person|project)\//.test(initialHash)) {
+      const slash = initialHash.indexOf("/");
+      await analyticsRoute(
+        initialHash.slice(1, slash),
+        decodeURIComponent(initialHash.slice(slash + 1)),
+      );
+    } else if (initialHash.startsWith("#session/")) {
       await tab("activity");
       await select(decodeURIComponent(initialHash.slice(9)));
     } else {
       await tab(
-        ["#people", "#accounts", "#settings", "#activity"].includes(initialHash)
+        [
+          "#people",
+          "#projects",
+          "#accounts",
+          "#settings",
+          "#activity",
+        ].includes(initialHash)
           ? initialHash.slice(1)
           : "people",
       );
@@ -190,7 +205,31 @@ async function init() {
       .forEach((b) => (b.disabled = false));
   }
 }
+async function analyticsRoute(kind, id = "") {
+  for (const section of ["people", "activity", "accounts", "settings"])
+    $("#" + section).hidden = true;
+  $("#analytics-page").hidden = false;
+  document.querySelectorAll("[data-tab]").forEach((b) => {
+    if (b.dataset.tab === (kind === "person" ? "people" : "projects"))
+      b.setAttribute("aria-current", "page");
+    else b.removeAttribute("aria-current");
+  });
+  history.replaceState(
+    null,
+    "",
+    id ? `#${kind}/${encodeURIComponent(id)}` : "#projects",
+  );
+  await renderAnalyticsPage($("#analytics-page"), {
+    kind,
+    id,
+    api,
+    notify,
+    principal: state.me.principal,
+    readOnly: state.readOnly,
+  });
+}
 async function showLogin() {
+  $("#analytics-page").hidden = true;
   document.body.classList.add("signed-out");
   $("#policy-banner").hidden = true;
   $("#identity").replaceChildren();
@@ -607,6 +646,12 @@ async function accounts() {
   }
 }
 async function settings() {
+  await renderViewerSettings($("#viewer-settings"), {
+    api,
+    notify,
+    readOnly: state.readOnly,
+    principal: state.me.principal,
+  });
   const p = state.me.policy;
   $("#policy-summary").textContent =
     `Policy ${p.version}: ${p.content} content, ${p.redaction} redaction, ${p.visibility.replaceAll("_", " ")} visibility. Retention: ${p.retention_days || "unlimited"} days.`;
@@ -722,8 +767,10 @@ function renderPeople() {
     );
     const info = node("div");
     const title = node("div", undefined, "person-title");
+    const personLink = node("a", name);
+    personLink.href = "#person/" + encodeURIComponent(p.id);
     title.append(
-      node("strong", name),
+      personLink,
       node(
         "span",
         p.active ? (p.role === "manager" ? "PM" : p.role) : "Revoked",
@@ -903,6 +950,7 @@ function icon(name) {
   const paths = {
     people:
       "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M16 3a4 4 0 0 1 0 8M22 21v-2a4 4 0 0 0-3-3.87",
+    projects: "M3 7h6l2-3h10v16H3zM3 9h18",
     sessions:
       "M21 15a4 4 0 0 1-4 4H7l-5 3V6a4 4 0 0 1 4-4h11a4 4 0 0 1 4 4zM7 8h10M7 12h6",
     accounts: "M2 7h20v13H2zM2 11h20M6 16h3M6 7V3h12v4",
@@ -1143,12 +1191,20 @@ $("#check-device").onclick = async () => {
 window.addEventListener("hashchange", async () => {
   if (!state.me) return;
   try {
-    if (location.hash.startsWith("#session/")) {
+    if (/^#(person|project)\//.test(location.hash)) {
+      const slash = location.hash.indexOf("/");
+      await analyticsRoute(
+        location.hash.slice(1, slash),
+        decodeURIComponent(location.hash.slice(slash + 1)),
+      );
+    } else if (location.hash.startsWith("#session/")) {
       const id = decodeURIComponent(location.hash.slice(9));
       await tab("activity");
       await select(id);
     } else if (
-      ["#people", "#accounts", "#settings", "#activity"].includes(location.hash)
+      ["#people", "#projects", "#accounts", "#settings", "#activity"].includes(
+        location.hash,
+      )
     )
       await tab(location.hash.slice(1));
   } catch (e) {

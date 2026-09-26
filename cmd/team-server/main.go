@@ -204,6 +204,15 @@ func seed(ctx context.Context, s *store.Store, workspace string) error {
 		if e != nil && e != c.ErrForbidden {
 			return e
 		}
+		points := []c.UsagePoint{}
+		for day := 0; day < 14; day++ {
+			n := int64((i + 1) * (day + 1) * 1000)
+			out := n / 4
+			points = append(points, c.UsagePoint{Timestamp: time.Now().UTC().AddDate(0, 0, -day).Format(time.RFC3339), Model: "synthetic-model", InputTokens: &n, OutputTokens: &out})
+		}
+		if e = s.ObserveUsage(ctx, c.Principal{Workspace: workspace, Person: x.person, Device: "synthetic-device"}, c.UsageCapture{SourceRef: v.SourceRef, Revision: "synthetic-usage-v1", PolicyVersion: p.Version, Client: v.Client, Project: x.project, ObservedAt: time.Now().UTC(), Coverage: "reported", Points: points}); e != nil {
+			return e
+		}
 	}
 	return nil
 }
