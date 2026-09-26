@@ -1,4 +1,11 @@
-import { renderWorkSummary } from "./work-summary.js";
+import {
+  renderOverview,
+  sessionActions,
+  renderToolActivity,
+  localViewerControl,
+} from "./session-overview.js";
+import { describeSession, readableContent } from "./session-data.js";
+import { renderContent, copyButton } from "./reading.js";
 import { renderDashboard } from "./dashboard.js";
 const $ = (q, root = document) => root.querySelector(q);
 const state = {
@@ -86,11 +93,19 @@ async function tab(name) {
     if (b.dataset.tab === name) b.setAttribute("aria-current", "page");
     else b.removeAttribute("aria-current");
   });
+  history.replaceState(
+    null,
+    "",
+    name === "activity" && state.selected
+      ? "#session/" + encodeURIComponent(state.selected.id)
+      : "#" + name,
+  );
   if (name === "people") await people();
   if (name === "accounts") await accounts();
   if (name === "settings") await settings();
 }
 async function init() {
+  document.querySelectorAll("[data-tab]").forEach((b) => (b.disabled = true));
   const initialHash = location.hash;
   if (initialHash.startsWith("#agent/")) {
     history.replaceState(null, "", location.pathname);
@@ -154,13 +169,22 @@ async function init() {
       $("#access-token").disabled = true;
     }
     await load();
-    await people();
     if (initialHash.startsWith("#session/")) {
       await tab("activity");
       await select(decodeURIComponent(initialHash.slice(9)));
+    } else {
+      await tab(
+        ["#people", "#accounts", "#settings", "#activity"].includes(initialHash)
+          ? initialHash.slice(1)
+          : "people",
+      );
     }
   } catch (e) {
     await showLogin();
+  } finally {
+    document
+      .querySelectorAll("[data-tab]")
+      .forEach((b) => (b.disabled = false));
   }
 }
 async function showLogin() {
@@ -230,29 +254,39 @@ function renderList() {
     list.append(empty);
   }
   for (const session of state.sessions) {
-    const b = node("button", undefined, "session-link");
+    const b = node("article", undefined, "session-link");
+    const open = node(
+      "a",
+      session.title || session.project || "Untitled session",
+      "session-open",
+    );
+    open.href = "#session/" + encodeURIComponent(session.id);
+    open.onclick = (e) => {
+      if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      e.preventDefault();
+      select(session.id).catch((err) => notify(err.message, true));
+    };
     b.setAttribute("aria-current", String(state.selected?.id === session.id));
     b.append(
-      node("strong", session.project || "Project unknown"),
+      open,
       node(
         "span",
-        session.preview || "No prompt content under this policy.",
+        readableContent(session.preview) || "No prompt text was captured.",
         "preview",
       ),
       node(
         "span",
-        `${session.client || "Client unknown"} · ${session.owner} · ${time(session.started_at)}`,
+        `${session.project || "Project unknown"} · ${session.client || "Client unknown"}`,
         "meta",
       ),
     );
     b.append(
       node(
         "span",
-        `Capture ${session.revision.slice(0, 8)} · ${time(session.received_at)}`,
+        `${time(session.started_at)}${session.automated ? " · Automated session" : ""}`,
         "meta",
       ),
     );
-    b.onclick = () => select(session.id).catch((e) => notify(e.message, true));
     list.append(b);
   }
 }
@@ -273,17 +307,18 @@ async function select(id) {
 function renderConversation() {
   const s = state.selected;
   const root = $("#conversation");
-  root.replaceChildren(
-    node("h2", s.project || "Project unknown", "session-title"),
-  );
+  root.replaceChildren(node("h2", describeSession(s).title, "session-title"));
   const facts = node("div", undefined, "facts");
   facts.append(
     node("span", s.client),
-    node("span", s.branch || "Branch unknown"),
+    node(
+      "span",
+      describeSession(s).automated ? "Automated session" : "Captured session",
+    ),
     node("span", time(s.started_at)),
     node("span", `${s.messages.length} messages`),
   );
-  root.append(facts);
+  root.append(facts, sessionActions(s));
   const provenance = node("details", undefined, "session-provenance");
   provenance.append(
     node("summary", "Source & attribution"),
@@ -301,7 +336,6 @@ function renderConversation() {
       `Capture ${s.revision.slice(0, 8)} · received ${time(s.received_at)}. Receipt order is not source chronology.`,
     ),
   );
-  root.append(provenance);
   const actions = node("div", undefined, "actions");
   const history = node("button", "See captures & discussions");
   history.onclick = async () => {
@@ -350,7 +384,14 @@ function renderConversation() {
   };
   prepare.disabled = state.readOnly;
   actions.append(exp, context, prepare);
-  root.append(renderWorkSummary(s, node));
+  const discussMessage = (ordinal) => {
+    state.ordinal = ordinal;
+    state.reviewOpen = true;
+    renderConversation();
+    $("#review-panel").scrollIntoView({ behavior: "instant" });
+    $("#review-body").focus();
+  };
+  root.append(renderOverview(s, discussMessage));
   const tools = node("details", undefined, "session-tools");
   tools.append(node("summary", "Export & review tools"), actions);
   root.append(tools);
@@ -384,33 +425,40 @@ function renderConversation() {
       $("#review-panel").scrollIntoView({ behavior: "instant" });
       $("#review-body").focus();
     };
-    head.append(discuss);
+    head.append(copyButton("Copy message", m.content), discuss);
     const full = node("details", undefined, "full-message");
-    full.append(
-      node("summary", "Read full message"),
-      node("pre", m.content, "message-content"),
-    );
+    full.append(node("summary", "Read full message"));
+    full.addEventListener("toggle", () => {
+      if (full.open && full.children.length === 1)
+        full.append(
+          renderContent(m.content, "message-content readable-content"),
+        );
+    });
     section.append(
       head,
       node(
         "p",
-        m.content.slice(0, 180) + (m.content.length > 180 ? "…" : ""),
+        readableContent(m.content).slice(0, 180) +
+          (readableContent(m.content).length > 180 ? "…" : ""),
         "message-preview",
       ),
       full,
     );
+    const activity = renderToolActivity(m);
+    if (activity) section.append(activity);
     if (m.raw) {
       const details = node("details");
-      details.append(
-        node("summary", "Source fields and tool content"),
-        node("pre", JSON.stringify(m.raw, null, 2)),
-      );
+      details.append(node("summary", "Original source JSON"));
+      details.addEventListener("toggle", () => {
+        if (details.open && details.children.length === 1)
+          details.append(node("pre", JSON.stringify(m.raw, null, 2)));
+      });
       section.append(details);
     }
     messages.append(section);
   }
   transcript.append(messages);
-  root.append(transcript);
+  root.append(transcript, provenance);
   if (s.messages.length > state.shown) {
     const more = node("button", "Show next 10 messages");
     more.onclick = () => {
@@ -1026,4 +1074,19 @@ $("#check-device").onclick = async () => {
     button.disabled = false;
   }
 };
+window.addEventListener("hashchange", async () => {
+  if (!state.me) return;
+  try {
+    if (location.hash.startsWith("#session/")) {
+      const id = decodeURIComponent(location.hash.slice(9));
+      await tab("activity");
+      await select(id);
+    } else if (
+      ["#people", "#accounts", "#settings", "#activity"].includes(location.hash)
+    )
+      await tab(location.hash.slice(1));
+  } catch (e) {
+    notify(e.message, true);
+  }
+});
 init();

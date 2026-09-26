@@ -35,7 +35,7 @@ test("synthetic login, full session, prompt feedback and mobile navigation", asy
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByLabel("Search sessions").fill("duplicate charge");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.locator(".session-link").first().click();
+  await page.locator(".session-open").first().click();
   await page.locator(".transcript > summary").click();
   await expect(
     page
@@ -141,7 +141,7 @@ test("switching people clears unrelated filters and the previous review target",
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
   await page.getByLabel("Search sessions").fill("duplicate charge");
   await page.getByRole("button", { name: "Search", exact: true }).click();
-  await page.locator(".session-link").first().click();
+  await page.locator(".session-open").first().click();
   await expect(page.locator("#conversation")).toContainText("sample-checkout");
   await page.getByRole("button", { name: "People", exact: true }).click();
   await page
@@ -212,7 +212,7 @@ test("session permalink survives reload", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Explore as owner" }).click();
   await page.getByRole("button", { name: "Sessions", exact: true }).click();
-  await page.locator(".session-link").first().click();
+  await page.locator(".session-open").first().click();
   await expect(page).toHaveURL(/#session\//);
   const url = page.url();
   await page.reload();
@@ -249,7 +249,7 @@ test("seven-day agent link opens a read-only session and can be revoked", async 
     agent.getByRole("button", { name: "Add person", exact: true }),
   ).toBeHidden();
   await agent.getByRole("button", { name: "Sessions", exact: true }).click();
-  await agent.locator(".session-link").first().click();
+  await agent.locator(".session-open").first().click();
   await agent.locator(".transcript > summary").click();
   await agent.getByRole("button", { name: "Discuss message 1" }).click();
   await expect(

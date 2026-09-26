@@ -27,6 +27,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
       "Library/Application Support/Shared Account AI Usage Monitor")
   }
+  let viewerControls = NSStackView()
+
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.regular)
     window = NSWindow(
@@ -69,7 +71,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     spinner.controlSize = .small
     spinner.isDisplayedWhenStopped = false
     controls.addArrangedSubview(spinner)
-    for v in [heading, detail, choose, person, address, policy, consent, controls, status] {
+    viewerControls.orientation = .horizontal
+    viewerControls.spacing = 12
+    viewerControls.isHidden = true
+    for (title, action) in [
+      ("Open AgentsView", #selector(openAgentsView)),
+      ("Copy local access key", #selector(copyLocalKey)),
+    ] {
+      viewerControls.addArrangedSubview(NSButton(title: title, target: self, action: action))
+    }
+    for v in [
+      heading, detail, choose, person, address, policy, consent, controls, viewerControls, status,
+    ] {
       stack.addArrangedSubview(v)
     }
     for v in [detail, person, address, policy, status] {
@@ -255,7 +268,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       }
     }
     person.stringValue = server
-    window.setContentSize(NSSize(width: 610, height: 350))
+    viewerControls.isHidden = false
+    window.setContentSize(NSSize(width: 610, height: 430))
+  }
+  func localSettings() -> [String: Any]? {
+    guard let data = try? Data(contentsOf: root.appendingPathComponent("team-agent.json")),
+      let values = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+    else { return nil }
+    return values
+  }
+  @objc func openAgentsView() {
+    guard let origin = localSettings()?["upstream"] as? String,
+      let url = URL(string: origin), ["http", "https"].contains(url.scheme ?? ""),
+      ["127.0.0.1", "localhost", "[::1]", "::1"].contains(url.host ?? ""),
+      url.user == nil, url.password == nil, url.query == nil, url.fragment == nil
+    else {
+      status.stringValue = "Local AgentsView address is unavailable."
+      return
+    }
+    NSWorkspace.shared.open(url)
+    status.stringValue =
+      "AgentsView: \(origin). If it asks for authentication, copy the local access key and paste it only into this local viewer."
+  }
+  @objc func copyLocalKey() {
+    guard let path = localSettings()?["upstream_token_file"] as? String,
+      let data = try? Data(contentsOf: URL(fileURLWithPath: path)), data.count < 4096,
+      let key = String(data: data, encoding: .utf8)?.trimmingCharacters(
+        in: .whitespacesAndNewlines), !key.isEmpty
+    else {
+      status.stringValue = "Local access key is unavailable."
+      return
+    }
+    NSPasteboard.general.clearContents()
+    NSPasteboard.general.setString(key, forType: .string)
+    status.stringValue = "Local access key copied. Paste it only into AgentsView on this computer."
   }
   @objc func openWorkspace() {
     if let u = URL(string: workspace), u.scheme == "https" { NSWorkspace.shared.open(u) }
