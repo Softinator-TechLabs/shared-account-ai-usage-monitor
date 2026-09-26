@@ -86,7 +86,7 @@ func (client *Client) collectUsageActivity(ctx context.Context, s usageSession) 
 				pending = -1
 			}
 			if _, err := time.Parse(time.RFC3339Nano, m.Timestamp); err != nil {
-				if human || len(m.Tools) > 0 {
+				if human || len(m.Tools) > 0 || (m.Role == "assistant" && !m.System && m.Model != "") {
 					coverage = "partial"
 				}
 				continue
@@ -116,13 +116,38 @@ func (client *Client) collectUsageActivity(ctx context.Context, s usageSession) 
 					lines += n
 				}
 			}
-			if known {
-				out = append(out, c.UsageActivity{Timestamp: m.Timestamp, Model: m.Model, Effort: m.Effort, GeneratedLines: &lines})
+			if known || m.Model != "" {
+				activity := c.UsageActivity{Timestamp: m.Timestamp, Model: m.Model, Effort: m.Effort}
+				if known {
+					activity.GeneratedLines = &lines
+				}
+				// A dated assistant response supplies an observed zero human
+				// prompt count in this model group, including delegated work.
+				// Unsupported tools still have unknown generated-line counts.
+				if m.Model != "" {
+					zero := int64(0)
+					activity.Prompts = &zero
+				}
+				out = append(out, activity)
 			}
 		}
 		if len(page.Messages) < 100 {
 			if total != s.Messages {
 				return unavailable()
+			}
+			if coverage != "reported" {
+				// Missing timestamps leave source coverage incomplete; do not
+				// let assistant zeros imply a complete observed prompt count.
+				kept := out[:0]
+				for _, activity := range out {
+					if activity.Prompts != nil && *activity.Prompts == 0 {
+						activity.Prompts = nil
+					}
+					if activity.Prompts != nil || activity.GeneratedLines != nil {
+						kept = append(kept, activity)
+					}
+				}
+				out = kept
 			}
 			return out, models, coverage
 		}

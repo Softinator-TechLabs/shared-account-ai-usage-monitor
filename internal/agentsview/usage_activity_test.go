@@ -225,9 +225,11 @@ func TestUsageActivitySubagentIsNotHumanPrompt(t *testing.T) {
 		t.Run(relationship, func(t *testing.T) {
 			got := collectSyntheticActivity(t, messages, relationship)
 			prompts, lines := int64(0), int64(0)
+			observedPrompts := false
 			for _, activity := range got.Activity {
 				if activity.Prompts != nil {
 					prompts += *activity.Prompts
+					observedPrompts = true
 				}
 				if activity.GeneratedLines != nil {
 					lines += *activity.GeneratedLines
@@ -237,12 +239,52 @@ func TestUsageActivitySubagentIsNotHumanPrompt(t *testing.T) {
 			if relationship == "subagent" {
 				wantPrompts = 0
 			}
-			if prompts != wantPrompts {
+			if !observedPrompts || prompts != wantPrompts {
 				t.Fatalf("%s human prompts = %d, want %d", relationship, prompts, wantPrompts)
 			}
 			if lines != 1 || len(got.Points) != 2 || got.Points[0].Effort != "high" || got.ActivityCoverage != "reported" {
 				t.Fatalf("child token/line evidence lost: %+v", got)
 			}
 		})
+	}
+}
+
+func TestUsageActivityObservedAssistantZeroPrompts(t *testing.T) {
+	messages := []map[string]any{}
+	for i := 0; i < 3; i++ {
+		messages = append(messages, map[string]any{"ordinal": i * 2, "role": "user", "timestamp": "2026-09-26T01:00:00Z"})
+		messages = append(messages, map[string]any{"ordinal": i*2 + 1, "role": "assistant", "timestamp": "2026-09-26T01:00:01Z", "model": "m", "reasoning_effort": "high", "tool_calls": []any{map[string]any{"tool_name": "Bash", "input_json": `{"command":"echo synthetic"}`}}})
+	}
+	got := collectSyntheticActivity(t, messages, "")
+	prompts, zeros := int64(0), 0
+	for _, a := range got.Activity {
+		if a.Prompts == nil {
+			t.Fatal("complete dated assistant must report observed zero prompts")
+		}
+		prompts += *a.Prompts
+		if *a.Prompts == 0 {
+			zeros++
+			if a.Model != "m" || a.Effort != "high" {
+				t.Fatal("zero missing model/effort binding")
+			}
+		}
+		if a.GeneratedLines != nil {
+			t.Fatal("unsupported tool acquired fabricated zero lines")
+		}
+	}
+	if prompts != 3 || zeros != 3 {
+		t.Fatalf("human sum=%d assistant zeros=%d", prompts, zeros)
+	}
+}
+
+func TestUsageActivityUnboundAssistantPromptCountStaysUnknown(t *testing.T) {
+	for _, timestamp := range []string{"2026-09-26T01:00:00Z", ""} {
+		messages := []map[string]any{{"ordinal": 0, "role": "assistant", "timestamp": timestamp, "tool_calls": []any{map[string]any{"tool_name": "Write", "input_json": `{"content":"synthetic"}`}}}}
+		got := collectSyntheticActivity(t, messages, "subagent")
+		for _, a := range got.Activity {
+			if a.Prompts != nil {
+				t.Fatal("unbound model/date gained zero prompt metadata")
+			}
+		}
 	}
 }
