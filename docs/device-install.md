@@ -14,7 +14,7 @@ team-agent status --config /private/team-agent.json
 team-agent run --config /private/team-agent.json
 ```
 
-`run` delivers every 15 seconds and checks upstream metadata every 15 minutes. Unchanged sources with a native transcript revision use a durable local checkpoint. `once` is useful for first verification. The companion does not read native login credential files. Full/no-redaction prompt content may itself contain secrets. Historical account identity stays unknown; manage declared assignments centrally. Per-device `declared_account` configuration is rejected because it would backfill unsupported account claims.
+`run` delivers every 15 seconds and checks upstream metadata every 15 minutes. Unchanged sources with a native transcript revision use a durable local checkpoint. `once` is useful for first verification. During initial backfill it reports device presence before enumeration and after delivered sources. The companion does not read native login credential files. Full/no-redaction prompt content may itself contain secrets. Historical account identity stays unknown; manage declared assignments centrally. Per-device `declared_account` configuration is rejected because it would backfill unsupported account claims.
 
 ## Policy changes and recovery
 

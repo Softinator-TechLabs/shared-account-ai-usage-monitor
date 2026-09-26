@@ -205,6 +205,15 @@ func run() error {
 		} else if current.Version != cfg.Policy.Version {
 			return errors.New("policy changed; collection paused")
 		}
+		// A first history import can take hours. Report the live device before reading it.
+		if online {
+			if err := cl.Request(ctx, "POST", "/api/v1/device/heartbeat", map[string]string{"os": runtime.GOOS}, nil); err != nil {
+				if !companion.Offline(err) {
+					return err
+				}
+				online = false
+			}
+		}
 		pendingMeta := map[string]string{}
 		err := av.CollectEach(ctx, cfg.Policy.Version, func(id, hash string) bool {
 			pendingMeta[id] = hash
@@ -223,6 +232,11 @@ func run() error {
 			}
 			if online {
 				if err = cl.Deliver(ctx, q, cfg.Policy.Version); err != nil {
+					if !companion.Offline(err) {
+						return err
+					}
+					online = false
+				} else if err = cl.Request(ctx, "POST", "/api/v1/device/heartbeat", map[string]string{"os": runtime.GOOS}, nil); err != nil {
 					if !companion.Offline(err) {
 						return err
 					}

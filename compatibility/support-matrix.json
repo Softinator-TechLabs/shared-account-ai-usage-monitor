@@ -14,5 +14,13 @@
     "Windows",
     "Ubuntu",
     "real employee enrollment"
+  ],
+  "verified_pilot": [
+    {
+      "os": "macOS arm64",
+      "agentsview": "0.44.0",
+      "scope": "one authorized owner device; startup, authenticated central upload, selected prompt text equality",
+      "coverage": "initial history backfill in progress; historical actor/account remain unknown"
+    }
   ]
 }
