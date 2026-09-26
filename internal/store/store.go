@@ -196,7 +196,7 @@ func (s *Store) List(ctx context.Context, p c.Principal, f c.Filter) ([]c.Sessio
 	rows, err := s.DB.Query(ctx, `SELECT s.id,s.owner_id,s.device_id,s.attribution,s.received_at,s.source_ref,s.revision,
  coalesce(s.body->>'client',''),coalesce(s.body->>'project',''),coalesce(s.body->>'branch',''),coalesce(s.body->>'started_at',''),
  coalesce((SELECT left(message->>'content',320) FROM jsonb_array_elements(s.body->'messages') message WHERE message->>'role'='user' LIMIT 1),''),
- jsonb_array_length(s.body->'messages') FROM tm_snapshots s JOIN tm_policies p ON p.workspace=s.workspace
+ jsonb_array_length(s.body->'messages'),coalesce(left(s.body->'raw'->>'display_name',200),''),coalesce(s.body->'raw'->>'is_automated'='true',false) FROM tm_snapshots s JOIN tm_policies p ON p.workspace=s.workspace
  WHERE s.workspace=$1 AND ($2 OR s.owner_id=$3 OR p.body->>'visibility'='team') AND ($4='' OR s.owner_id=$4) AND ($5='' OR s.body->>'project'=$5) AND ($6='' OR s.body->>'client'=$6) AND ($7='' OR s.body::text ILIKE $8) AND s.received_at<$9 AND ($11='' OR s.source_ref=$11) ORDER BY s.received_at DESC,s.id DESC LIMIT $10`, p.Workspace, p.Manager(), p.Person, f.Person, f.Project, f.Client, f.Query, pattern, before, f.Limit, f.SourceRef)
 	if err != nil {
 		return nil, err
@@ -205,7 +205,7 @@ func (s *Store) List(ctx context.Context, p c.Principal, f c.Filter) ([]c.Sessio
 	out := []c.SessionSummary{}
 	for rows.Next() {
 		var row c.SessionSummary
-		if err = rows.Scan(&row.ID, &row.Owner, &row.ObservedBy, &row.Attribution, &row.ReceivedAt, &row.SourceRef, &row.Revision, &row.Client, &row.Project, &row.Branch, &row.StartedAt, &row.Preview, &row.MessageCount); err != nil {
+		if err = rows.Scan(&row.ID, &row.Owner, &row.ObservedBy, &row.Attribution, &row.ReceivedAt, &row.SourceRef, &row.Revision, &row.Client, &row.Project, &row.Branch, &row.StartedAt, &row.Preview, &row.MessageCount, &row.Title, &row.Automated); err != nil {
 			return nil, err
 		}
 		out = append(out, row)

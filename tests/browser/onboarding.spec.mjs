@@ -68,7 +68,7 @@ test("large prompts stay collapsed behind a bounded work summary", async ({
         "Synthetic long prompt " + "context ".repeat(20000);
     await route.fulfill({ response, json });
   });
-  await page.locator(".session-link").first().click();
+  await page.locator(".session-open").first().click();
   await expect(page.locator(".work-summary")).toBeVisible();
   await expect(page.locator(".transcript")).not.toHaveAttribute("open", "");
   await expect(page.locator(".message-content").first()).toBeHidden();

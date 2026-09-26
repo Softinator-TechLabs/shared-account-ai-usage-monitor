@@ -71,6 +71,8 @@ type Session struct {
 
 // SessionSummary is deliberately bounded; full source content is available through Get/export.
 type SessionSummary struct {
+	Title        string    `json:"title"`
+	Automated    bool      `json:"automated"`
 	ID           string    `json:"id"`
 	SourceRef    string    `json:"source_ref"`
 	Revision     string    `json:"revision"`
