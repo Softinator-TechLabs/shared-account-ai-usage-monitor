@@ -34,8 +34,6 @@ services:
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
       OWNER_OIDC_SUBJECT: ${OWNER_OIDC_SUBJECT:-}
       INITIAL_POLICY: ${INITIAL_POLICY:?Set an explicit initial policy}
-    ports:
-      - 127.0.0.1:8090:8090
     tmpfs:
       - /run/setup:uid=65532,gid=65532,mode=0700
     read_only: true
