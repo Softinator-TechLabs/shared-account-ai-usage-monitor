@@ -18,6 +18,8 @@ import (
 	"unicode/utf8"
 )
 
+var errUnsupported = errors.New("upstream capability unavailable")
+
 type Client struct {
 	base  string
 	token string
@@ -47,6 +49,9 @@ func (client *Client) get(ctx context.Context, path string, q url.Values, out an
 		return errors.New("upstream unavailable")
 	}
 	defer res.Body.Close()
+	if res.StatusCode == 404 {
+		return errUnsupported
+	}
 	if res.StatusCode != 200 {
 		return fmt.Errorf("upstream HTTP %d", res.StatusCode)
 	}
@@ -104,7 +109,7 @@ func (client *Client) CollectEach(ctx context.Context, policyVersion int, skip f
 			if session.ID == "" || session.Agent == "" {
 				return errors.New("upstream session identity missing")
 			}
-			metaHash := sha256.Sum256(raw)
+			metaHash := sha256.Sum256(append([]byte("tools-v1:"), raw...))
 			if skip != nil && skip(session.ID, hex.EncodeToString(metaHash[:])) && session.NativeRevision != "" {
 				continue
 			}
@@ -147,6 +152,24 @@ func (client *Client) CollectEach(ctx context.Context, policyVersion int, skip f
 					return errors.New("message pagination stalled")
 				}
 				start = snapshot.Messages[len(snapshot.Messages)-1].Ordinal + 1
+			}
+			var tools struct {
+				Calls []json.RawMessage `json:"tool_calls"`
+				Count *int              `json:"count"`
+			}
+			if err := client.get(ctx, "/api/v1/sessions/"+url.PathEscape(session.ID)+"/tool-calls", nil, &tools); err != nil {
+				if !errors.Is(err, errUnsupported) {
+					return err
+				}
+				snapshot.ToolCoverage = "unavailable"
+			} else if tools.Count == nil {
+				snapshot.ToolCoverage = "unavailable"
+			} else {
+				if len(tools.Calls) != *tools.Count {
+					return errors.New("incomplete upstream tool call listing")
+				}
+				snapshot.ToolCalls = tools.Calls
+				snapshot.ToolCoverage = "tool_inputs_only; completion and Git changes unverified"
 			}
 			// Released API lacks a pagination revision guard. Re-read the source revision
 			// before acknowledging a multi-page capture; a moving source is retried later.

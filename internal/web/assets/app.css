@@ -1444,3 +1444,333 @@ footer {
     scroll-behavior: auto !important;
   }
 }
+/* Activity is measured evidence: one shared surface, not decorative score cards. */
+.analytics {
+  margin: 12px 0 40px;
+  padding: 24px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.analytics-heading,
+.analytics-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.analytics-heading {
+  justify-content: space-between;
+}
+.analytics-heading h2 {
+  margin: 0;
+  font-size: 21px;
+}
+.analytics-controls label {
+  margin: 0;
+}
+.activity-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  margin: 18px 0 28px;
+  color: var(--muted);
+}
+.activity-facts strong {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(220px, 1fr);
+  gap: 32px 40px;
+}
+.analytics-grid h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 0 0 6px;
+}
+.activity-chart svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 12px;
+}
+.chart-bar {
+  fill: var(--action);
+}
+.chart-bar:hover {
+  fill: #183c9e;
+}
+.chart-rule {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.chart-label {
+  fill: #606879;
+  font-size: 11px;
+  font-family: inherit;
+}
+.chart-caption {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.breakdown-row {
+  margin: 12px 0;
+}
+.breakdown-row > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  font-size: 13px;
+}
+.breakdown-row span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.breakdown-row strong {
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.bar-track {
+  height: 5px;
+  background: #e8edf6;
+  margin-top: 6px;
+  border-radius: 2px;
+}
+.bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--action);
+  border-radius: 2px;
+}
+.bar-fill.unknown {
+  background: #7b8495;
+}
+.chart-coverage {
+  margin-top: 28px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.chart-coverage p {
+  max-width: 75ch;
+}
+.chart-data {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.chart-data th,
+.chart-data td {
+  text-align: left;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--line);
+}
+.chart-empty {
+  padding: 25px 0;
+}
+#device-dialog {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  box-sizing: border-box;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: var(--surface);
+}
+#device-dialog::backdrop {
+  background: rgb(17 23 39 / 48%);
+}
+#device-dialog .dialog-heading h2 {
+  font-size: 25px;
+  margin: 0;
+}
+.setup-steps {
+  padding-left: 24px;
+  margin: 28px 0;
+}
+.setup-steps > li {
+  padding-left: 8px;
+  margin-bottom: 28px;
+}
+.setup-steps h3 {
+  font-size: 16px;
+  margin: 0 0 6px;
+}
+.setup-steps p {
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+.setup-steps small {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.download-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+}
+.download-primary {
+  display: inline-block;
+  background: var(--action);
+  color: white;
+  padding: 10px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 550;
+}
+.download-primary:hover {
+  background: #244cb9;
+  color: white;
+}
+#connection-status {
+  margin-top: 12px;
+}
+#device-dialog details {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .analytics {
+    padding: 20px 0;
+    margin-bottom: 28px;
+  }
+  .analytics-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .analytics-grid {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .activity-facts {
+    gap: 8px 18px;
+  }
+  #device-dialog {
+    padding: 20px;
+  }
+  .setup-steps {
+    padding-left: 20px;
+  }
+}
+.work-summary {
+  margin: 24px 0;
+}
+.work-summary h3 {
+  margin: 0 0 16px;
+  font-size: 19px;
+}
+.work-summary h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 24px 0 8px;
+}
+.work-context {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 24px;
+  margin: 0;
+}
+.work-context div:nth-child(2) {
+  grid-column: 1/-1;
+  grid-row: 2;
+}
+.work-context dt {
+  font-size: 12px;
+  color: var(--muted);
+}
+.work-context dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.work-summary p,
+.session-provenance p {
+  font-size: 13px;
+}
+.missing-evidence {
+  margin: 22px 0 6px;
+  font-weight: 550;
+}
+.result-excerpt {
+  white-space: pre-wrap;
+  max-width: 75ch;
+  overflow-wrap: anywhere;
+}
+.file-table-scroll {
+  max-height: 280px;
+  overflow: auto;
+}
+.work-files {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+}
+.work-files th,
+.work-files td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.work-files td:first-child {
+  width: 65%;
+}
+.session-provenance,
+.session-tools {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 12px 0;
+}
+.session-tools .actions {
+  margin: 14px 0;
+}
+.transcript {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.transcript > summary {
+  font-weight: 600;
+  font-size: 15px;
+  cursor: pointer;
+}
+.transcript-messages {
+  max-height: 62vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  margin-top: 12px;
+}
+.message-preview {
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.full-message .message-content {
+  max-height: 420px;
+  overflow: auto;
+}
+.full-message > summary {
+  font-size: 13px;
+}
+@media (max-width: 760px) {
+  .work-context {
+    grid-template-columns: 1fr;
+  }
+  .work-context div:nth-child(2) {
+    grid-row: auto;
+    grid-column: auto;
+  }
+  .message-head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}

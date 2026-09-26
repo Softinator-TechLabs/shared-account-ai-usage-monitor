@@ -2,6 +2,7 @@
 
 - [Start and demo](../README.md)
 - [Deployment and OIDC](deployment.md)
+- [Mac setup, activity charts and compact work summaries](device-and-activity.md)
 - [Device enrollment and lifecycle](device-install.md)
 - [Architecture / evidence boundaries](architecture.md)
 - [Agent coaching and MCP](coaching.md)

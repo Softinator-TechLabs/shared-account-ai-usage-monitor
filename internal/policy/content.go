@@ -47,6 +47,8 @@ func Apply(v c.Snapshot, policy c.Policy) (c.Snapshot, []byte, error) {
 	}
 	if policy.Content == "metadata" {
 		out.Raw = nil
+		out.ToolCalls = nil
+		out.ToolCoverage = "withheld_by_policy"
 		for i := range out.Messages {
 			out.Messages[i].Content = ""
 			out.Messages[i].Raw = nil

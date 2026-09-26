@@ -121,3 +121,27 @@ func TestChangingTranscriptRevisionIsNotAcknowledged(t *testing.T) {
 		t.Fatal("changing source silently archived", err, emitted)
 	}
 }
+
+func TestToolInputsRetainedAndIncompleteListingRejected(t *testing.T) {
+	count := 1
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == "/api/v1/sessions":
+			w.Write([]byte(`{"sessions":[{"id":"x","agent":"codex"}]}`))
+		case strings.HasSuffix(r.URL.Path, "/tool-calls"):
+			json.NewEncoder(w).Encode(map[string]any{"count": count, "tool_calls": []any{map[string]any{"tool_name": "apply_patch", "input_json": "{\"patch\":\"*** Update File: src/a.go\\n+synthetic\"}", "ordinal": 0}}})
+		default:
+			w.Write([]byte(`{"messages":[{"ordinal":0,"role":"assistant","content":"synthetic"}]}`))
+		}
+	}))
+	defer server.Close()
+	client, _ := New(server.URL, "")
+	rows, e := client.Collect(context.Background(), 1)
+	if e != nil || len(rows[0].ToolCalls) != 1 {
+		t.Fatal("tool evidence missing", e)
+	}
+	count = 2
+	if _, e = client.Collect(context.Background(), 1); e == nil {
+		t.Fatal("incomplete tool listing silently accepted")
+	}
+}

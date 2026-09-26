@@ -253,7 +253,8 @@ func run() error {
 		}
 		return cl.Request(ctx, "POST", "/api/v1/device/heartbeat", map[string]string{"os": runtime.GOOS}, nil)
 	}
-	if err := cycle(); command == "once" {
+	initialErr := cycle()
+	if err := initialErr; command == "once" {
 		return err
 	} else if err != nil {
 		log.Print(err)
@@ -261,6 +262,9 @@ func run() error {
 	delivery := time.NewTicker(15 * time.Second)
 	defer delivery.Stop()
 	reconcile := time.NewTicker(15 * time.Minute)
+	if initialErr != nil {
+		reconcile.Reset(time.Minute)
+	}
 	defer reconcile.Stop()
 	for {
 		select {
@@ -275,6 +279,9 @@ func run() error {
 		case <-reconcile.C:
 			if e = cycle(); e != nil {
 				log.Print(e)
+				reconcile.Reset(time.Minute)
+			} else {
+				reconcile.Reset(15 * time.Minute)
 			}
 		}
 	}

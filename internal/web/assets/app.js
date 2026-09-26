@@ -1,3 +1,5 @@
+import { renderWorkSummary } from "./work-summary.js";
+import { renderDashboard } from "./dashboard.js";
 const $ = (q, root = document) => root.querySelector(q);
 const state = {
   me: null,
@@ -258,7 +260,9 @@ async function select(id) {
   const session = await api("/sessions/" + encodeURIComponent(id));
   state.selected = session;
   state.reviews = await api("/sessions/" + encodeURIComponent(id) + "/reviews");
-  state.shown = 50;
+  state.shown = 10;
+  state.conversationOpen = false;
+  state.reviewOpen = false;
   state.ordinal = session.messages?.[0]?.ordinal ?? 0;
   history.replaceState(null, "", "#session/" + encodeURIComponent(id));
   renderList();
@@ -279,8 +283,10 @@ function renderConversation() {
     node("span", time(s.started_at)),
     node("span", `${s.messages.length} messages`),
   );
-  root.append(
-    facts,
+  root.append(facts);
+  const provenance = node("details", undefined, "session-provenance");
+  provenance.append(
+    node("summary", "Source & attribution"),
     node("p", `Observed member: ${s.owner} · Device: ${s.observed_by}`),
     node(
       "p",
@@ -289,16 +295,13 @@ function renderConversation() {
     node(
       "p",
       `${s.coverage}. Attribution: ${s.attribution.replaceAll("_", " ")}.`,
-      "notice",
     ),
-  );
-  root.append(
     node(
       "p",
-      `Capture ${s.revision.slice(0, 8)} · received ${time(s.received_at)}. Captures retain their own discussions; receipt order does not establish source chronology.`,
-      "muted",
+      `Capture ${s.revision.slice(0, 8)} · received ${time(s.received_at)}. Receipt order is not source chronology.`,
     ),
   );
+  root.append(provenance);
   const actions = node("div", undefined, "actions");
   const history = node("button", "See captures & discussions");
   history.onclick = async () => {
@@ -347,8 +350,19 @@ function renderConversation() {
   };
   prepare.disabled = state.readOnly;
   actions.append(exp, context, prepare);
-  root.append(actions);
-  const messages = node("div");
+  root.append(renderWorkSummary(s, node));
+  const tools = node("details", undefined, "session-tools");
+  tools.append(node("summary", "Export & review tools"), actions);
+  root.append(tools);
+  const transcript = node("details", undefined, "transcript");
+  transcript.open = Boolean(state.conversationOpen);
+  transcript.append(
+    node("summary", `Conversation · ${s.messages.length} messages`),
+  );
+  transcript.addEventListener("toggle", () => {
+    state.conversationOpen = transcript.open;
+  });
+  const messages = node("div", undefined, "transcript-messages");
   for (const m of s.messages.slice(0, state.shown)) {
     const section = node(
       "section",
@@ -364,12 +378,27 @@ function renderConversation() {
     const discuss = node("button", "Discuss message " + (m.ordinal + 1));
     discuss.onclick = () => {
       state.ordinal = m.ordinal;
+      state.reviewOpen = true;
+      state.conversationOpen = true;
       renderConversation();
       $("#review-panel").scrollIntoView({ behavior: "instant" });
       $("#review-body").focus();
     };
     head.append(discuss);
-    section.append(head, node("pre", m.content, "message-content"));
+    const full = node("details", undefined, "full-message");
+    full.append(
+      node("summary", "Read full message"),
+      node("pre", m.content, "message-content"),
+    );
+    section.append(
+      head,
+      node(
+        "p",
+        m.content.slice(0, 180) + (m.content.length > 180 ? "…" : ""),
+        "message-preview",
+      ),
+      full,
+    );
     if (m.raw) {
       const details = node("details");
       details.append(
@@ -380,17 +409,19 @@ function renderConversation() {
     }
     messages.append(section);
   }
-  root.append(messages);
+  transcript.append(messages);
+  root.append(transcript);
   if (s.messages.length > state.shown) {
-    const more = node("button", "Show next 50 messages");
+    const more = node("button", "Show next 10 messages");
     more.onclick = () => {
-      state.shown += 50;
+      state.shown += 10;
       renderConversation();
     };
-    root.append(more);
+    transcript.append(more);
   }
   const panel = node("section");
   panel.id = "review-panel";
+  panel.hidden = !state.reviewOpen;
   panel.append(
     node("h2", "Discussion & review"),
     node(
@@ -583,6 +614,7 @@ async function people() {
     api("/accounts"),
   ]);
   renderPeople();
+  await dashboard();
 }
 function renderPeople() {
   const q = $("#people-search").value.toLowerCase();
@@ -727,17 +759,7 @@ function renderPeople() {
     actionCell.className = "person-actions";
     if (!state.readOnly && state.me.principal.role === "owner" && p.active) {
       const enroll = node("button", "Connect device", "connect-button");
-      enroll.onclick = async () => {
-        try {
-          download(
-            "device-invitation.json",
-            await post("/invitations", { person: p.id }),
-          );
-          notify("Device invitation downloaded. Share privately.");
-        } catch (e) {
-          notify(e.message, true);
-        }
-      };
+      enroll.onclick = () => openDevice(p, enroll);
       actionCell.append(enroll);
       if (p.id.includes("@")) {
         const reset = node("button", "Reset login", "text-button");
@@ -796,8 +818,6 @@ function icon(name) {
   }
   return svg;
 }
-$("#view-sessions").onclick = () =>
-  tab("activity").catch((e) => notify(e.message, true));
 $("#people-search").oninput = renderPeople;
 $("#add-person").onclick = () => {
   $("#person-dialog").hidden = false;
@@ -943,4 +963,67 @@ bindForm("#debug-link-form", async (v) => {
   await settings();
   notify("Seven-day read-only link downloaded. Revoke it here at any time.");
 });
+let dashboardRequest = 0;
+async function dashboard() {
+  const request = ++dashboardRequest;
+  const root = $("#dashboard-content");
+  $("#refresh-dashboard").disabled = true;
+  try {
+    const d = await api("/dashboard?days=" + $("#activity-period").value);
+    if (request === dashboardRequest) renderDashboard(root, d);
+  } catch (e) {
+    if (request === dashboardRequest)
+      root.replaceChildren(
+        node("p", "Activity could not load. Use Refresh to retry.", "notice"),
+      );
+  } finally {
+    if (request === dashboardRequest) $("#refresh-dashboard").disabled = false;
+  }
+}
+$("#activity-period").onchange = dashboard;
+$("#refresh-dashboard").onclick = dashboard;
+let connectionPerson = null;
+let connectionOpener = null;
+function openDevice(person, opener) {
+  connectionPerson = person;
+  connectionOpener = opener;
+  $("#device-person").textContent =
+    `For ${person.name || person.id} · ${person.id}`;
+  $("#connection-status").textContent = "";
+  $("#device-dialog").showModal();
+}
+$("#close-device").onclick = () => $("#device-dialog").close();
+$("#device-dialog").addEventListener("close", () => connectionOpener?.focus());
+$("#download-connection").onclick = async () => {
+  const button = $("#download-connection");
+  button.disabled = true;
+  try {
+    const result = await post("/invitations", { person: connectionPerson.id });
+    download("Connect AI Usage Monitor.aiusage", result);
+    $("#connection-status").textContent =
+      "Connection file downloaded. Open it with AI Usage Monitor on the employee’s Mac.";
+  } catch (e) {
+    $("#connection-status").textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+};
+$("#check-device").onclick = async () => {
+  const button = $("#check-device");
+  button.disabled = true;
+  try {
+    await people();
+    const person = state.people.find((p) => p.id === connectionPerson.id);
+    const online = (person?.devices || []).filter(
+      (d) => d.last_seen && Date.now() - new Date(d.last_seen) < 120000,
+    );
+    $("#connection-status").textContent = online.length
+      ? `Connected: ${online.map((d) => d.name).join(", ")}. History may still be syncing.`
+      : "No recent device connection yet. Finish setup in the Mac app, then check again.";
+  } catch (e) {
+    $("#connection-status").textContent = e.message;
+  } finally {
+    button.disabled = false;
+  }
+};
 init();
