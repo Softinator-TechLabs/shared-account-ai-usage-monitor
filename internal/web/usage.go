@@ -28,6 +28,14 @@ func (s *Server) usageRoutes() {
 	s.human("GET /api/v1/analytics", func(w http.ResponseWriter, r *http.Request, p c.Principal) {
 		q := r.URL.Query()
 		days, hours := 14, 0
+		period := q.Get("period")
+		if q.Has("period") {
+			if period != "today" || q.Has("days") || q.Has("hours") {
+				fail(w, c.ErrInvalid)
+				return
+			}
+			days = 0
+		}
 		if q.Has("hours") {
 			if q.Has("days") {
 				fail(w, c.ErrInvalid)
@@ -49,7 +57,7 @@ func (s *Server) usageRoutes() {
 				return
 			}
 		}
-		v, e := s.store.Analytics(r.Context(), p, store.UsageFilter{Days: days, Hours: hours, Person: q.Get("person"), Project: q.Get("project"), Client: q.Get("client")}, time.Now())
+		v, e := s.store.Analytics(r.Context(), p, store.UsageFilter{Days: days, Hours: hours, Period: period, Person: q.Get("person"), Project: q.Get("project"), Client: q.Get("client")}, time.Now())
 		if e != nil {
 			fail(w, e)
 			return

@@ -56,3 +56,15 @@ func TestHourlyAnalyticsTool(t *testing.T) {
 		}
 	}
 }
+
+func TestTodayAnalyticsTool(t *testing.T) {
+	p, e := readToolPath("usage_analytics", map[string]string{"period": "today"})
+	if e != nil || p != "/api/v1/analytics?period=today" {
+		t.Fatal(p, e)
+	}
+	for _, a := range []map[string]string{{"period": "yesterday"}, {"period": "today", "hours": "24"}, {"period": "today", "days": "7"}} {
+		if _, e := readToolPath("usage_analytics", a); e == nil {
+			t.Fatal(a)
+		}
+	}
+}

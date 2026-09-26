@@ -38,3 +38,5 @@ Fresh macOS setup starts separate AgentsView, transcript, quota and analytics La
 Windows and Linux can run `analytics-run` under their existing per-user service manager, using the same acknowledged private config. Their native installer/startup behavior is not yet certified. Cross-compilation is not device testing.
 
 The full transcript import size/backlog problem is independent and remains open. These analytics do not certify full centralized conversation availability, exact account/session binding, Claude/Antigravity quota collection, or central AgentsView device isolation.
+
+- [Usage shares and subscription estimates](usage-estimates.md): Today, per-client model/effort/project pies, prompt and proposed-line counters, conditional quota allocation and explicit missing-data boundaries.

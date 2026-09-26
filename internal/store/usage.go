@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	c "github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/internal/contracts"
 	"github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/internal/policy"
+	"github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/internal/usageweights"
 	"sort"
 	"time"
 )
@@ -18,10 +19,23 @@ func (s *Store) ObserveUsage(ctx context.Context, p c.Principal, v c.UsageCaptur
 		return c.ErrInvalid
 	}
 	for _, pt := range v.Points {
-		if len(pt.Model) > 256 || len(pt.Timestamp) > 64 {
+		if len(pt.Model) > 256 || len(pt.Timestamp) > 64 || len(pt.Effort) > 128 {
 			return c.ErrInvalid
 		}
 		for _, n := range []*int64{pt.InputTokens, pt.OutputTokens, pt.CacheReadTokens, pt.CacheWriteTokens} {
+			if n != nil && (*n < 0 || *n > 1000000000000) {
+				return c.ErrInvalid
+			}
+		}
+	}
+	if len(v.Activity) > 100000 || (v.ActivityCoverage != "" && v.ActivityCoverage != "reported" && v.ActivityCoverage != "partial" && v.ActivityCoverage != "unavailable") {
+		return c.ErrInvalid
+	}
+	for _, a := range v.Activity {
+		if len(a.Timestamp) > 64 || len(a.Model) > 256 || len(a.Effort) > 128 {
+			return c.ErrInvalid
+		}
+		for _, n := range []*int64{a.Prompts, a.GeneratedLines} {
 			if n != nil && (*n < 0 || *n > 1000000000000) {
 				return c.ErrInvalid
 			}
@@ -65,6 +79,7 @@ func (s *Store) ObserveUsage(ctx context.Context, p c.Principal, v c.UsageCaptur
 
 type UsageFilter struct {
 	Days, Hours             int
+	Period                  string
 	Person, Project, Client string
 }
 type UsageCounters struct {
@@ -119,27 +134,30 @@ func (g *UsageGroup) add(p c.UsagePoint, source, person string) {
 }
 
 type UsageCoverage struct {
-	Sources              int        `json:"sources"`
-	UnavailableSources   int        `json:"unavailable_sources"`
-	UndatedPoints        int        `json:"undated_points"`
-	ContentConflicts     int        `json:"content_conflicts"`
-	AttributionConflicts int        `json:"attribution_conflicts"`
-	LastObservedAt       *time.Time `json:"last_observed_at"`
+	QuotaHistoryTruncated bool       `json:"quota_history_truncated"`
+	Sources               int        `json:"sources"`
+	UnavailableSources    int        `json:"unavailable_sources"`
+	UndatedPoints         int        `json:"undated_points"`
+	ContentConflicts      int        `json:"content_conflicts"`
+	AttributionConflicts  int        `json:"attribution_conflicts"`
+	LastObservedAt        *time.Time `json:"last_observed_at"`
 }
 type UsageAnalytics struct {
-	Granularity string        `json:"granularity"`
-	Series      []UsageGroup  `json:"series"`
-	Start       string        `json:"start"`
-	End         string        `json:"end"`
-	Timezone    string        `json:"timezone"`
-	Attribution string        `json:"attribution"`
-	Coverage    UsageCoverage `json:"coverage"`
-	Totals      UsageCounters `json:"totals"`
-	Daily       []UsageGroup  `json:"daily"`
-	People      []UsageGroup  `json:"people"`
-	Projects    []UsageGroup  `json:"projects"`
-	Clients     []UsageGroup  `json:"clients"`
-	Models      []UsageGroup  `json:"models"`
+	Composition    UsageComposition `json:"composition"`
+	QuotaEstimates []QuotaEstimate  `json:"quota_estimates"`
+	Granularity    string           `json:"granularity"`
+	Series         []UsageGroup     `json:"series"`
+	Start          string           `json:"start"`
+	End            string           `json:"end"`
+	Timezone       string           `json:"timezone"`
+	Attribution    string           `json:"attribution"`
+	Coverage       UsageCoverage    `json:"coverage"`
+	Totals         UsageCounters    `json:"totals"`
+	Daily          []UsageGroup     `json:"daily"`
+	People         []UsageGroup     `json:"people"`
+	Projects       []UsageGroup     `json:"projects"`
+	Clients        []UsageGroup     `json:"clients"`
+	Models         []UsageGroup     `json:"models"`
 }
 
 func groups(m map[string]*UsageGroup) []UsageGroup {
@@ -171,9 +189,10 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 	if p.Device != "" || p.Workspace == "" || p.Person == "" {
 		return d, c.ErrForbidden
 	}
-	validDays := f.Hours == 0 && (f.Days == 7 || f.Days == 14 || f.Days == 30 || f.Days == 90)
-	validHours := f.Days == 0 && (f.Hours == 1 || f.Hours == 12 || f.Hours == 24 || f.Hours == 48)
-	if (!validDays && !validHours) || len(f.Person) > 128 || len(f.Project) > 1024 || len(f.Client) > 64 {
+	validDays := f.Period == "" && f.Hours == 0 && (f.Days == 7 || f.Days == 14 || f.Days == 30 || f.Days == 90)
+	validHours := f.Period == "" && f.Days == 0 && (f.Hours == 1 || f.Hours == 12 || f.Hours == 24 || f.Hours == 48)
+	validToday := f.Period == "today" && f.Days == 0 && f.Hours == 0
+	if (!validDays && !validHours && !validToday) || len(f.Person) > 128 || len(f.Project) > 1024 || len(f.Client) > 64 {
 		return d, c.ErrInvalid
 	}
 	policy, e := s.Policy(ctx, p.Workspace)
@@ -190,10 +209,15 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 	d.End = today.Format("2006-01-02")
 	d.Start = today.AddDate(0, 0, 1-f.Days).Format("2006-01-02")
 	daily, people, projects, clients, models := map[string]*UsageGroup{}, map[string]*UsageGroup{}, map[string]*UsageGroup{}, map[string]*UsageGroup{}, map[string]*UsageGroup{}
+	windowStart, windowEnd := usageWindow(f, now, zone)
+	composition := compositionBuilder{}
+	d.Composition = UsageComposition{RateVersion: usageweights.Version, Rows: []CompositionRow{}}
+	d.QuotaEstimates = []QuotaEstimate{}
+	quotaPoints := []QuotaUsagePoint{}
 	var start time.Time
 	bucketWidth := time.Hour
-	if f.Hours > 0 {
-		start = now.Add(-time.Duration(f.Hours) * time.Hour)
+	if f.Hours > 0 || validToday {
+		start = windowStart
 		d.Start = start.UTC().Format(time.RFC3339Nano)
 		d.End = now.UTC().Format(time.RFC3339Nano)
 		d.Granularity = "hour"
@@ -212,17 +236,17 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 		}
 	}
 	// Conflicts are computed before person filtering: copies cannot silently become two employees' work.
-	rows, e := s.DB.Query(ctx, `SELECT DISTINCT ON(u.source_ref) u.body,u.person,(SELECT count(DISTINCT person) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT (body - 'observed_at' - 'revision' - 'policy_version')) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref) FROM tm_usage u WHERE u.workspace=$1 AND ($2 OR u.person=$3) ORDER BY u.source_ref,u.observed_at DESC,u.person,u.device`, p.Workspace, all, p.Person)
+	rows, e := s.DB.Query(ctx, `SELECT DISTINCT ON(u.source_ref) u.body,u.person,u.device,(SELECT count(DISTINCT device) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT person) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT (body - 'observed_at' - 'revision' - 'policy_version')) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref) FROM tm_usage u WHERE u.workspace=$1 AND ($2 OR u.person=$3) ORDER BY u.source_ref,u.observed_at DESC,u.person,u.device`, p.Workspace, all, p.Person)
 	if e != nil {
 		return d, e
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var b []byte
-		var person string
-		var owners, contents int
+		var person, device string
+		var owners, contents, copies int
 		var v c.UsageCapture
-		if e = rows.Scan(&b, &person, &owners, &contents); e != nil {
+		if e = rows.Scan(&b, &person, &device, &copies, &owners, &contents); e != nil {
 			return d, e
 		}
 		if e = json.Unmarshal(b, &v); e != nil {
@@ -230,6 +254,31 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 		}
 		if v.Project == "" {
 			v.Project = "Unknown project"
+		}
+		// Account allocation denominators are built before presentation filters.
+		if contents > 1 {
+			quotaPoints = append(quotaPoints, QuotaUsagePoint{Client: "codex"})
+		}
+		if v.Coverage != "reported" {
+			quotaPoints = append(quotaPoints, QuotaUsagePoint{Client: v.Client})
+		}
+		{
+			for _, pt := range v.Points {
+				if _, err := time.Parse(time.RFC3339Nano, pt.Timestamp); err != nil {
+					quotaPoints = append(quotaPoints, QuotaUsagePoint{Client: v.Client})
+					continue
+				}
+				if inUsageWindow(pt.Timestamp, windowStart, windowEnd) {
+					at, _ := time.Parse(time.RFC3339Nano, pt.Timestamp)
+					qp := QuotaUsagePoint{At: at, Person: person, Device: device, Project: v.Project, Model: pt.Model, Effort: pt.Effort, Client: v.Client, Weight: usageweights.Weight(v.Client, pt)}
+					if contents != 1 || owners != 1 || copies != 1 {
+						qp.Person = ""
+						qp.Device = ""
+						qp.Weight = nil
+					}
+					quotaPoints = append(quotaPoints, qp)
+				}
+			}
 		}
 		if f.Project != "" && v.Project != f.Project || f.Client != "" && v.Client != f.Client {
 			continue
@@ -254,6 +303,20 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 		if v.Coverage != "reported" {
 			d.Coverage.UnavailableSources++
 		}
+		if !all && conflict {
+			continue
+		}
+		sourceComposition := compositionBuilder{}
+		if v.ActivityCoverage == "reported" {
+			d.Composition.ActivitySources++
+		} else {
+			d.Composition.ActivityUnavailableSources++
+		}
+		for _, a := range v.Activity {
+			if inUsageWindow(a.Timestamp, windowStart, windowEnd) {
+				sourceComposition.activity(v, a)
+			}
+		}
 		for _, pt := range v.Points {
 			at, err := time.Parse(time.RFC3339Nano, pt.Timestamp)
 			if err != nil {
@@ -261,7 +324,7 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 				continue
 			}
 			key := at.In(zone).Format("2006-01-02")
-			if f.Hours > 0 {
+			if f.Hours > 0 || validToday {
 				if at.Before(start) || !at.Before(now) {
 					continue
 				}
@@ -272,6 +335,7 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 			if !all && conflict {
 				continue
 			}
+			sourceComposition.point(v, pt)
 			d.Totals.add(pt)
 			g := group(daily, key)
 			g.add(pt, v.SourceRef, person)
@@ -298,12 +362,21 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 			g.Model = model
 			g.add(pt, v.SourceRef, person)
 		}
+		composition.merge(sourceComposition, v.ActivityCoverage == "reported")
 	}
 	if e = rows.Err(); e != nil {
 		return d, e
 	}
+	rows.Close()
+	d.Composition.Rows = composition.finish()
+	observations, truncated, qe := s.quotaHistory(ctx, p, all, windowStart, windowEnd)
+	if qe != nil {
+		return d, qe
+	}
+	d.Coverage.QuotaHistoryTruncated = truncated
+	d.QuotaEstimates = estimateQuotas(observations, quotaPoints, windowStart, windowEnd, f, all)
 	d.Series = groups(daily)
-	if f.Hours == 0 {
+	if f.Hours == 0 && !validToday {
 		d.Daily = d.Series
 	}
 	d.People = groups(people)

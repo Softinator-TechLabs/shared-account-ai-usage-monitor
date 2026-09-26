@@ -15,15 +15,17 @@ import (
 // Usage enumeration is independent of transcript collection. Only typed metadata
 // and token counters survive projection; upstream labels, prices and raw data do not.
 type usageSession struct {
-	ID             string `json:"id"`
-	Agent          string `json:"agent"`
-	Project        string `json:"project"`
-	Branch         string `json:"git_branch"`
-	Started        string `json:"started_at"`
-	Ended          string `json:"ended_at"`
-	NativeRevision string `json:"transcript_revision"`
-	Messages       int    `json:"message_count"`
-	Prompts        int    `json:"user_message_count"`
+	ID               string `json:"id"`
+	Agent            string `json:"agent"`
+	Project          string `json:"project"`
+	Branch           string `json:"git_branch"`
+	Started          string `json:"started_at"`
+	Ended            string `json:"ended_at"`
+	NativeRevision   string `json:"transcript_revision"`
+	Messages         int    `json:"message_count"`
+	Prompts          int    `json:"user_message_count"`
+	Automated        bool   `json:"is_automated"`
+	RelationshipType string `json:"relationship_type"`
 }
 
 // CollectUsageEach skips only caller-acknowledged captures. The skip callback can
@@ -57,7 +59,7 @@ func (client *Client) CollectUsageEach(ctx context.Context, version int, skip fu
 				return errors.New("usage source identity missing")
 			}
 			metadata, _ := json.Marshal(session)
-			sum := sha256.Sum256(append([]byte("usage-v1:"), metadata...))
+			sum := sha256.Sum256(append([]byte("usage-v2:"), metadata...))
 			revision := hex.EncodeToString(sum[:])
 			if skip != nil {
 				yes, err := skip(session.ID, revision)
@@ -101,12 +103,13 @@ func (client *Client) collectUsage(ctx context.Context, s usageSession, revision
 		Count        *int  `json:"breakdown_count"`
 		HasTokenData *bool `json:"has_token_data"`
 		Breakdown    []struct {
-			Timestamp  string `json:"timestamp"`
-			Model      string `json:"model"`
-			Input      *int64 `json:"input_tokens"`
-			Output     *int64 `json:"output_tokens"`
-			CacheWrite *int64 `json:"cache_creation_input_tokens"`
-			CacheRead  *int64 `json:"cache_read_input_tokens"`
+			MessageOrdinal *int   `json:"message_ordinal"`
+			Timestamp      string `json:"timestamp"`
+			Model          string `json:"model"`
+			Input          *int64 `json:"input_tokens"`
+			Output         *int64 `json:"output_tokens"`
+			CacheWrite     *int64 `json:"cache_creation_input_tokens"`
+			CacheRead      *int64 `json:"cache_read_input_tokens"`
 		} `json:"breakdown"`
 	}
 	err := client.get(ctx, "/api/v1/sessions/"+url.PathEscape(s.ID)+"/usage", url.Values{"breakdown": {"true"}}, &usage)
@@ -130,6 +133,20 @@ func (client *Client) collectUsage(ctx context.Context, s usageSession, revision
 					}
 				}
 				out.Points = append(out.Points, c.UsagePoint{Timestamp: row.Timestamp, Model: row.Model, InputTokens: row.Input, OutputTokens: row.Output, CacheReadTokens: row.CacheRead, CacheWriteTokens: row.CacheWrite})
+			}
+		}
+	}
+	// Enrichment failures leave authoritative token rows usable. No raw message
+	// content or tool inputs become part of the capture.
+	activity, efforts, coverage := client.collectUsageActivity(ctx, s)
+	out.Activity, out.ActivityCoverage = activity, coverage
+	if coverage != "unavailable" {
+		for i, row := range usage.Breakdown {
+			if row.MessageOrdinal != nil && i < len(out.Points) {
+				meta := efforts[*row.MessageOrdinal]
+				if meta.model == row.Model {
+					out.Points[i].Effort = meta.effort
+				}
 			}
 		}
 	}

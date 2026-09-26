@@ -39,3 +39,7 @@ See [deployment](docs/deployment.md), [device enrollment](docs/device-install.md
 Connect [read-only MCP](docs/coaching.md) to a native subscribed agent. Ask for evidence-grounded coaching in Hinglish or English. A model conclusion is a draft interpretation; prompt length, language fluency, tokens, LOC and commits are not employee productivity scores. Human review remains available for all employment/pay decisions.
 
 [Architecture](docs/architecture.md) · [Agent harness](AGENTS.md) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md) · [MIT license](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md)
+
+### Understand usage shares
+
+Open **People → a person → Today (IST)** for model/effort and recorded-project pies. Prompt counts and proposed edit lines are separate evidence. [Read the calculation and limits](docs/usage-estimates.md) before interpreting conditional subscription quota allocations: captured usage share is not the same as allowance consumed.
