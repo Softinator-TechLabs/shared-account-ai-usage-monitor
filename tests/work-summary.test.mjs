@@ -31,3 +31,28 @@ test("only structured edit evidence counts, not mentions or shell commands", () 
   assert.equal(r.branch, "");
   assert.equal(workEvidence({}).files.length, 0);
 });
+
+test("editor views and unknown commands never count as edits", () => {
+  const result = workEvidence({
+    tool_calls: [
+      "view",
+      "unknown",
+      "str_replace",
+      "create",
+      "insert",
+      "undo_edit",
+    ].map((command) => ({
+      tool_name: "str_replace_editor",
+      input_json: JSON.stringify({ command, path: `/repo/${command}.txt` }),
+    })),
+  });
+  assert.deepEqual(
+    result.files.map((f) => f.path),
+    [
+      "/repo/str_replace.txt",
+      "/repo/create.txt",
+      "/repo/insert.txt",
+      "/repo/undo_edit.txt",
+    ],
+  );
+});

@@ -39,6 +39,11 @@ export function workEvidence(session) {
       input = { patch: input };
     }
     if (!input || typeof input !== "object") continue;
+    if (
+      short === "str_replace_editor" &&
+      !["create", "str_replace", "insert", "undo_edit"].includes(input.command)
+    )
+      continue;
     if (short === "apply_patch") {
       const patch = input.patch || input.input || "";
       if (typeof patch !== "string") continue;

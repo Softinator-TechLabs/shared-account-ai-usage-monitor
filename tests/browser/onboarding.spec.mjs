@@ -51,3 +51,33 @@ test("activity charts and Mac setup replace the invitation-only action", async (
   await expect(dialog).not.toBeVisible();
   await expect(connect).toBeFocused();
 });
+
+test("large prompts stay collapsed behind a bounded work summary", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore as owner" }).click();
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await page.route("**/api/v1/sessions/*", async (route) => {
+    if (new URL(route.request().url()).pathname.endsWith("/reviews"))
+      return route.continue();
+    const response = await route.fetch();
+    const json = await response.json();
+    if (json.messages?.length)
+      json.messages[0].content =
+        "Synthetic long prompt " + "context ".repeat(20000);
+    await route.fulfill({ response, json });
+  });
+  await page.locator(".session-link").first().click();
+  await expect(page.locator(".work-summary")).toBeVisible();
+  await expect(page.locator(".transcript")).not.toHaveAttribute("open", "");
+  await expect(page.locator(".message-content").first()).toBeHidden();
+  await page.locator(".transcript > summary").click();
+  await page.locator(".full-message > summary").first().click();
+  await expect(page.locator(".message-content").first()).toBeVisible();
+  expect(
+    await page
+      .locator(".transcript-messages")
+      .evaluate((n) => n.clientHeight <= innerHeight * 0.62 + 2),
+  ).toBeTruthy();
+});

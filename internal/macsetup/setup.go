@@ -155,20 +155,35 @@ func plist(home, root, name string, args []string) []byte {
 	}
 	return []byte(`<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>Label</key><string>com.softinator.ai-usage.` + name + `</string><key>ProgramArguments</key><array>` + a.String() + `</array><key>RunAtLoad</key><true/><key>KeepAlive</key><true/><key>ThrottleInterval</key><integer>20</integer><key>StandardOutPath</key><string>` + esc(filepath.Join(root, name+".stdout.log")) + `</string><key>StandardErrorPath</key><string>` + esc(filepath.Join(root, name+".stderr.log")) + `</string></dict></plist>`)
 }
-func Service(ctx context.Context, home, name string, start bool) error {
-	domain := fmt.Sprintf("gui/%d", os.Getuid())
-	label := "com.softinator.ai-usage." + name
-	exists := exec.CommandContext(ctx, "/bin/launchctl", "print", domain+"/"+label).Run() == nil
+
+// serviceAction keeps launchd's disabled state in sync with explicit user intent.
+// A bootout alone would restart collection at the next login.
+func serviceAction(ctx context.Context, domain, file, target string, start bool, exists func() bool, run func(context.Context, ...string) error) error {
 	if start {
-		if exists {
+		if e := run(ctx, "/bin/launchctl", "enable", target); e != nil {
+			return e
+		}
+		if exists() {
 			return nil
 		}
-		return command(ctx, "/bin/launchctl", "bootstrap", domain, serviceFile(home, name))
+		return run(ctx, "/bin/launchctl", "bootstrap", domain, file)
 	}
-	if !exists {
+	if e := run(ctx, "/bin/launchctl", "disable", target); e != nil {
+		return e
+	}
+	if !exists() {
 		return nil
 	}
-	return command(ctx, "/bin/launchctl", "bootout", domain+"/"+label)
+	return run(ctx, "/bin/launchctl", "bootout", target)
+}
+func Service(ctx context.Context, home, name string, start bool) error {
+	if name != "agentsview" && name != "companion" {
+		return errors.New("unknown background service")
+	}
+	domain := fmt.Sprintf("gui/%d", os.Getuid())
+	target := domain + "/com.softinator.ai-usage." + name
+	exists := func() bool { return exec.CommandContext(ctx, "/bin/launchctl", "print", target).Run() == nil }
+	return serviceAction(ctx, domain, serviceFile(home, name), target, start, exists, command)
 }
 func Install(ctx context.Context, home, resources, file, server string, ack int, progress func(string)) error {
 	if runtime.GOOS != "darwin" {
@@ -267,10 +282,6 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 		return e
 	}
 	defer os.Remove(privateInvite)
-	progress("Connecting to your workspace…")
-	if e = command(ctx, agent, "enroll", "--server", v.Server, "--config", cfg, "--invitation-file", privateInvite, "--device", hostname(), "--ack-version", fmt.Sprint(ack), "--upstream", fmt.Sprintf("http://127.0.0.1:%d", port), "--upstream-token-file", tokenfile); e != nil {
-		return errors.New("workspace could not accept this invitation; it may be expired or already used. Download a new connection file")
-	}
 	for _, name := range []string{"agentsview", "companion"} {
 		for _, suffix := range []string{".stdout.log", ".stderr.log"} {
 			p := filepath.Join(root, name+suffix)
@@ -288,6 +299,12 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 	}
 	if e = write(serviceFile(home, "companion"), plist(home, root, "companion", agentargs), 0600); e != nil {
 		return e
+	}
+	// Prepare every local artifact before consuming the one-use invitation.
+	// Once enrollment saves the config, Resume can complete service startup.
+	progress("Connecting to your workspace…")
+	if e = command(ctx, agent, "enroll", "--server", v.Server, "--config", cfg, "--invitation-file", privateInvite, "--device", hostname(), "--ack-version", fmt.Sprint(ack), "--upstream", fmt.Sprintf("http://127.0.0.1:%d", port), "--upstream-token-file", tokenfile); e != nil {
+		return errors.New("workspace could not accept this invitation; it may be expired or already used. Download a new connection file")
 	}
 	progress("Starting background sync…")
 	if e = Service(ctx, home, "agentsview", true); e != nil {
