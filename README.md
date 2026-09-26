@@ -1,5 +1,7 @@
 # Shared Account AI Usage Monitor
 
+**Approved next direction:** reuse official AgentsView for central sessions, search and analytics; focus this project on people, shared-account evidence, quota history and coaching. See the [design and migration gates](docs/agentsview-first.md). The features below describe the current prototype, not a completed migration.
+
 An experimental, self-hosted team archive for native subscription coding-agent sessions. Search full available prompts, inspect recorded models and projects, discuss individual messages, and give **separate prompt and delivered-work ratings** with evidence.
 
 Built with [AgentsView](https://github.com/kenn-io/agentsview) integration, an independent project by Kenn Software LLC. This is not an official AgentsView product. AgentsView stays separately installed and maintained upstream; this project owns the team layer.

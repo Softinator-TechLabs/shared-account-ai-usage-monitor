@@ -1,5 +1,7 @@
 # Decisions
 
+- **2026-09-26 · central upstream reuse supersedes custom reader expansion.** Reuse independently versioned AgentsView PostgreSQL sync/UI after access, fidelity, device and rollback gates. Keep our identity/account/quota/coaching layer. Existing archive remains supported during migration; see [accepted design](agentsview-first.md). This supersedes the original Session-API-only target below, not its current runtime or evidence safeguards.
+
 - **2026-09-26 · composition over parser fork.** Use official AgentsView Session API. One adapter owns API drift; fixture/canary gates replace blind updates. No maintenance-free guarantee.
 - **Go/PostgreSQL/embedded UI.** One module, three deployable processes, no frontend production runtime. Python stdlib research/compatibility scripts and Node browser tests are development tooling.
 - **Revision snapshot as atomic record.** Preserve raw API JSON plus normalized fields. Message anchors are revision+ordinal; no invented native UUID. API index rebuilds can create new revisions. Per-device duplicate delivery provenance remains a follow-up.

@@ -1,5 +1,7 @@
 # Architecture and evidence boundaries
 
+**Architecture transition:** [AgentsView-first design](agentsview-first.md) is the approved target. The architecture below describes the existing prototype, retained for compatibility and rollback. Central upstream migration and automatic quota collection are not yet implemented.
+
 The product is one Go module. Three deployable binaries: `team-server`, `team-agent`, and `team-mcp`. PostgreSQL is the only central runtime dependency. Browser dependencies are test-only. Install official AgentsView separately; its native parsers are not forked or copied.
 
 ```

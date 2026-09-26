@@ -1,5 +1,7 @@
 # Delivery status · 2026-09-26
 
+**Next delivery gate:** [AgentsView-first pilot and quota plan](superpowers/plans/2026-09-26-agentsview-first.md). Direction approved; central migration, automatic quota adapter and LAN access are pending. The owner confirmed that the authenticated local AgentsView viewer opens. Existing large-history storage failure remains open.
+
 Status: experimental release with one live owner pilot. Not certified for general employee rollout.
 
 Implemented: Session API adapter, policy transformation, PostgreSQL archive/revisions, hashed single-use enrollment, email/password invitation setup, employee/device directory and connection heartbeat, optional OIDC state/nonce/PKCE verification, full-text search/export, immutable message discussions, independent ratings, externally submitted agent drafts, account declarations/manual quota history, read-only MCP, chunks, expiry/deletion/restore ledger, embedded responsive UI and deployment documentation.
