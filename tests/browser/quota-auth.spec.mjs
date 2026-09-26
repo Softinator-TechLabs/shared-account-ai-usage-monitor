@@ -7,6 +7,7 @@ test("signed-out login and setup have no application sidebar on desktop or mobil
     await page.goto("/#settings");
     await expect(page.locator("#login")).toBeVisible();
     await expect(page.locator("body > header")).toBeHidden();
+    await expect(page.locator("body")).toHaveCSS("background-image", "none");
     expect(
       await page.locator("main").evaluate((el) => el.getBoundingClientRect().x),
     ).toBeLessThan(60);

@@ -1996,6 +1996,7 @@ footer {
 /* Authentication is a separate surface, including the initial loading state. */
 body.signed-out {
   display: block;
+  background: var(--paper);
 }
 body.signed-out > header {
   display: none;
