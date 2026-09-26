@@ -50,7 +50,9 @@ test("enrolled device shows separate collection health, project context and unkn
     page.getByRole("button", { name: "Add another device", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText("Quota connected · session sync stale", { exact: true }),
+    page.getByText("Quota connected · session collector stale", {
+      exact: true,
+    }),
   ).toBeVisible();
   await expect(
     page.getByText("Personal quota share: unknown", { exact: true }),
@@ -76,4 +78,50 @@ test("enrolled device shows separate collection health, project context and unkn
       fullPage: true,
     });
   }
+});
+
+test("same device name on two people retains both observed account associations", async ({
+  page,
+}) => {
+  const now = new Date().toISOString();
+  await page.route("**/api/v1/people", (r) =>
+    r.fulfill({
+      json: ["alice", "bob"].map((id) => ({
+        id,
+        name: id,
+        role: "member",
+        active: true,
+        sessions: 0,
+        projects: [],
+        devices: [
+          { id: `synthetic-${id}`, name: "mac", os: "darwin", last_seen: null },
+        ],
+      })),
+    }),
+  );
+  await page.route("**/api/v1/quota-observations", (r) =>
+    r.fulfill({
+      json: ["alice", "bob"].map((person) => ({
+        provider: "codex",
+        profile: "default",
+        device: "mac",
+        person,
+        email: "shared@example.test",
+        observed_at: now,
+        received_at: now,
+        windows: [{ name: "primary", used_percent: 86 }],
+      })),
+    }),
+  );
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore as owner" }).click();
+  await expect(
+    page.getByText("shared@example.test", { exact: true }),
+  ).toHaveCount(2);
+  await expect(
+    page.getByText("86% account total", { exact: true }),
+  ).toHaveCount(2);
+  await expect(
+    page.getByText("Personal quota share: unknown", { exact: true }),
+  ).toHaveCount(2);
 });

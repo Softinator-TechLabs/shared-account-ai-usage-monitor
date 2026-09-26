@@ -767,14 +767,14 @@ function renderPeople() {
         : recent
           ? "Connected"
           : quotaConnected
-            ? "Quota connected · session sync stale"
+            ? "Quota connected · session collector stale"
             : "No recent connection";
       const label = node("div");
       label.append(
         node("strong", d.name),
         node(
           "small",
-          `${d.os || "OS unknown"} · Session sync: ${d.last_seen ? time(d.last_seen) : "not seen yet"}`,
+          `${d.os || "OS unknown"} · Session collector: ${d.last_seen ? time(d.last_seen) : "not seen yet"}`,
         ),
       );
       line.append(
@@ -817,7 +817,7 @@ function renderPeople() {
       tags.append(node("span", "No declared assignment", "muted"));
     accountCell.append(tags);
     const observed = quotaAccounts(state.quotaObservations).filter((g) =>
-      g.devices.some((d) => d.person === p.id),
+      g.history.some((observation) => observation.person === p.id),
     );
     for (const group of observed) {
       const observation = node("div", undefined, "person-quota");
