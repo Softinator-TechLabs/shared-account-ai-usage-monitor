@@ -268,3 +268,102 @@
     overflow-x: auto;
   }
 }
+
+/* Usage composition extends the existing flat analytics surface. */
+.composition-client,
+.quota-estimate-interval {
+  padding-block: 24px;
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.composition-client h3,
+.quota-estimate-interval h3 {
+  margin-bottom: 12px;
+  overflow-wrap: anywhere;
+}
+.composition-charts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 32px;
+  margin-block: 20px;
+}
+.composition-chart {
+  margin: 0;
+  min-width: 0;
+}
+.composition-chart figcaption {
+  font-weight: 550;
+  margin-bottom: 16px;
+}
+.composition-chart-content {
+  display: grid;
+  grid-template-columns: 140px minmax(0, 1fr);
+  gap: 20px;
+  align-items: center;
+}
+.composition-pie {
+  width: 100%;
+  max-width: 180px;
+  display: block;
+}
+.composition-legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 13px;
+}
+.composition-legend li {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 8px;
+  padding-block: 6px;
+  overflow-wrap: anywhere;
+}
+.composition-legend strong {
+  font-variant-numeric: tabular-nums;
+  font-weight: 550;
+  white-space: nowrap;
+}
+.composition-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 4px;
+}
+.composition-details,
+.composition-method {
+  margin-top: 16px;
+}
+.composition-details .usage-table-wrap {
+  margin-top: 16px;
+}
+.composition-method p {
+  max-width: 75ch;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.composition-table th,
+.composition-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-width: 100px;
+}
+.quota-estimate-interval > p {
+  margin-block: 10px;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1200px) {
+  .composition-chart-content {
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 12px;
+  }
+}
+@media (max-width: 960px) {
+  .composition-charts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .composition-chart-content {
+    grid-template-columns: 120px minmax(0, 1fr);
+  }
+}

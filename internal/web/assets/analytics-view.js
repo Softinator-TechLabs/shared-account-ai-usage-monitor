@@ -1,5 +1,6 @@
 import { compactNumber as number, exactNumber } from "./number-format.js";
 import { renderQuotas } from "./quota-view.js";
+import { renderComposition, renderQuotaEstimates } from "./composition-view.js";
 
 const el = (tag, text, cls) => {
   const n = document.createElement(tag);
@@ -323,6 +324,7 @@ export async function renderAnalyticsPage(
       selectControl(
         "Period",
         [
+          ["today", "Today (IST)"],
           ["1h", "Last hour"],
           ["12h", "Last 12 hours"],
           ["24h", "Last 24 hours"],
@@ -362,11 +364,13 @@ export async function renderAnalyticsPage(
     const dataRoot = el("div", undefined, "usage-content");
     dataRoot.append(el("p", "Loading token counts…", "usage-empty"));
     root.append(dataRoot);
-    const query = new URLSearchParams({
-      [selection.period.endsWith("h") ? "hours" : "days"]:
+    const query = new URLSearchParams({ client: selection.client });
+    if (selection.period === "today") query.set("period", "today");
+    else
+      query.set(
+        selection.period.endsWith("h") ? "hours" : "days",
         selection.period.replace(/h$/, ""),
-      client: selection.client,
-    });
+      );
     if (kind === "person") query.set("person", id);
     if (kind === "project") query.set("project", id);
     try {
@@ -389,7 +393,12 @@ export async function renderAnalyticsPage(
         );
         totals.append(item);
       }
-      dataRoot.append(totals, dailyChart(data, selection.category));
+      dataRoot.append(totals);
+      if (data.composition)
+        dataRoot.append(renderComposition(data.composition));
+      if (data.quota_estimates?.length)
+        dataRoot.append(renderQuotaEstimates(data.quota_estimates));
+      dataRoot.append(dailyChart(data, selection.category));
       if (kind !== "project")
         dataRoot.append(
           usageTable(

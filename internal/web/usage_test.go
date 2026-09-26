@@ -46,12 +46,12 @@ func TestUsageHTTPPermissionsAndDeletion(t *testing.T) {
 	if w := call("GET", "/api/v1/analytics?days=oops", human); w.Code != 400 {
 		t.Fatal(w.Code)
 	}
-	for _, q := range []string{"hours=1", "hours=12", "hours=24", "hours=48"} {
+	for _, q := range []string{"period=today", "hours=1", "hours=12", "hours=24", "hours=48"} {
 		if w := call("GET", "/api/v1/analytics?"+q, human); w.Code != 200 || !strings.Contains(w.Body.String(), `"timestamp":`) {
 			t.Fatal(w.Code, w.Body.String())
 		}
 	}
-	for _, q := range []string{"hours=0", "hours=2", "hours=", "hours=24&days=7"} {
+	for _, q := range []string{"period=", "period=yesterday", "period=today&hours=1", "period=today&days=7", "hours=0", "hours=2", "hours=", "hours=24&days=7"} {
 		if w := call("GET", "/api/v1/analytics?"+q, human); w.Code != 400 {
 			t.Fatal(q, w.Code)
 		}
