@@ -38,3 +38,21 @@ func TestAnalyticsReadToolBoundary(t *testing.T) {
 		}
 	}
 }
+
+func TestHourlyAnalyticsTool(t *testing.T) {
+	for _, h := range []string{"1", "12", "24", "48"} {
+		p, e := readToolPath("usage_analytics", map[string]string{"hours": h})
+		if e != nil {
+			t.Fatal(e)
+		}
+		u, _ := url.Parse(p)
+		if u.Query().Get("hours") != h || u.Query().Has("days") {
+			t.Fatal(p)
+		}
+	}
+	for _, a := range []map[string]string{{"hours": "0"}, {"hours": "2"}, {"hours": "24", "days": "7"}} {
+		if _, e := readToolPath("usage_analytics", a); e == nil {
+			t.Fatal(a)
+		}
+	}
+}

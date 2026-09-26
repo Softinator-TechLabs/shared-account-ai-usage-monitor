@@ -6,9 +6,9 @@ import { resolve } from "node:path";
 const personID = "alice+analytics@example.test";
 const project = "synthetic/repo & tools";
 const counters = {
-  input_tokens: 12500,
+  input_tokens: 3120000,
   output_tokens: 850,
-  cache_read_tokens: 36000,
+  cache_read_tokens: 1374596160,
   cache_write_tokens: null,
 };
 const people = [
@@ -161,6 +161,25 @@ async function fixture(
               },
             }
           : analytics;
+        const hours = Number(url.searchParams.get("hours"));
+        if (hours) {
+          const end = new Date("2026-09-26T16:07:00Z");
+          const start = new Date(end - hours * 3600000);
+          const step = hours === 1 ? 300000 : 3600000;
+          json = {
+            ...json,
+            start: start.toISOString(),
+            end: end.toISOString(),
+            granularity: hours === 1 ? "5m" : "hour",
+            daily: [],
+            series: empty
+              ? []
+              : Array.from({ length: (hours * 3600000) / step }, (_, i) => ({
+                  timestamp: new Date(+start + i * step).toISOString(),
+                  ...counters,
+                })),
+          };
+        }
       } else if (path === "/device-viewers") json = devices;
       else if (path.endsWith("/viewer-key"))
         json = { key: "synthetic-secret-never-in-url" };
@@ -247,7 +266,7 @@ test("person detail deep link separates provider accounts, unknown counters and 
   ).toBeVisible();
   await surface.getByRole("button", { name: "Output", exact: true }).click();
   await expect(
-    surface.getByRole("img", { name: /Daily output tokens/ }),
+    surface.getByRole("img", { name: /Hourly output tokens/ }),
   ).toBeVisible();
   await expect(
     surface.getByText("This computer only · loopback address"),
@@ -470,4 +489,49 @@ test("viewer forms reject credential-bearing and disguised LAN URLs", async ({
     );
   }
   expect(requests.filter((r) => r.method === "POST")).toHaveLength(0);
+});
+
+test("compact counts retain exact values and rolling hours reach analytics API", async ({
+  page,
+}) => {
+  const requests = await fixture(page);
+  await page.goto("/#projects");
+  const root = page.locator("#analytics-page");
+  await expect(page.getByLabel("Period", { exact: true })).toHaveValue("24h");
+  await expect(root.locator(".token-totals dd").first()).toHaveText("3.12M");
+  await expect(root.locator(".token-totals dd").first()).toHaveAttribute(
+    "title",
+    "3,120,000",
+  );
+  await expect(root.locator(".token-totals dd").nth(1)).toHaveText("850");
+  await expect(root.locator(".token-totals dd").nth(2)).toHaveText("1.37B");
+  for (const hours of [48, 24, 12, 1]) {
+    await page.getByLabel("Period", { exact: true }).selectOption(`${hours}h`);
+    await expect(
+      root.getByRole("heading", {
+        name: hours === 1 ? "Tokens every 5 minutes" : "Hourly tokens",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect
+      .poll(
+        () =>
+          requests.filter((r) => r.path === "/api/v1/analytics").at(-1)?.search,
+      )
+      .toContain(`hours=${hours}`);
+    const query = new URLSearchParams(
+      requests.filter((r) => r.path === "/api/v1/analytics").at(-1).search,
+    );
+    expect(query.has("days")).toBeFalsy();
+  }
+  await root.getByText("View exact token counts", { exact: true }).click();
+  await expect(root.locator(".usage-daily-data td").first()).toHaveText(
+    "3,120,000",
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
 });

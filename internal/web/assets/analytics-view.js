@@ -1,3 +1,4 @@
+import { compactNumber as number, exactNumber } from "./number-format.js";
 import { renderQuotas } from "./quota-view.js";
 
 const el = (tag, text, cls) => {
@@ -12,10 +13,36 @@ const categories = [
   ["cache_read_tokens", "Cache read"],
   ["cache_write_tokens", "Cache write"],
 ];
-const number = (value) =>
-  typeof value === "number" && Number.isFinite(value)
-    ? new Intl.NumberFormat("en-IN").format(value)
-    : "Unknown";
+const numberNode = (tag, value) => {
+  const node = el(tag, number(value));
+  node.title = exactNumber(value);
+  node.setAttribute("aria-label", exactNumber(value));
+  return node;
+};
+const series = (data) => data.series || data.daily || [];
+const isHourly = (data) =>
+  data.granularity === "hour" || data.granularity === "5m";
+const chartHeading = (data) =>
+  data.granularity === "5m"
+    ? "Tokens every 5 minutes"
+    : isHourly(data)
+      ? "Hourly tokens"
+      : "Daily tokens";
+const pointLabel = (point, data, short = false) => {
+  if (!point.timestamp)
+    return short ? point.day.slice(5).replace("-", "/") : point.day;
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: data.timezone || "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    ...(short && data.granularity === "5m"
+      ? {}
+      : { day: "2-digit", month: "short" }),
+  }).format(new Date(point.timestamp));
+};
+const rangeLabel = (data, value) =>
+  isHourly(data) ? pointLabel({ timestamp: value }, data) : value;
 const link = (kind, id, text) => {
   const a = el("a", text);
   a.href = `#${kind}/${encodeURIComponent(id)}`;
@@ -24,7 +51,7 @@ const link = (kind, id, text) => {
 const timestamp = (value) =>
   value ? new Date(value).toLocaleString() : "Not reported";
 let requestID = 0;
-const selection = { days: "14", client: "", category: "input_tokens" };
+const selection = { period: "24h", client: "", category: "input_tokens" };
 
 function selectControl(label, options, value, change) {
   const wrap = el("label", label);
@@ -41,7 +68,7 @@ function selectControl(label, options, value, change) {
   return wrap;
 }
 
-function usageTable(title, rows, nameKey, makeName) {
+function usageTable(title, rows, nameKey, makeName, exact = false) {
   const section = el("section", undefined, "usage-section");
   section.append(el("h2", title));
   if (!rows.length) {
@@ -70,7 +97,11 @@ function usageTable(title, rows, nameKey, makeName) {
       makeName ? makeName(row) : el("span", row[nameKey] || "Unknown"),
     );
     tr.append(name);
-    for (const [key] of categories) tr.append(el("td", number(row[key])));
+    for (const [key] of categories) {
+      const cell = numberNode("td", row[key]);
+      if (exact) cell.textContent = exactNumber(row[key]);
+      tr.append(cell);
+    }
     body.append(tr);
   }
   table.append(head, body);
@@ -81,7 +112,7 @@ function usageTable(title, rows, nameKey, makeName) {
 
 function dailyChart(data, category) {
   const section = el("section", undefined, "usage-section daily-usage");
-  section.append(el("h2", "Daily tokens"));
+  section.append(el("h2", chartHeading(data)));
   const controls = el("div", undefined, "token-tabs");
   controls.setAttribute("role", "group");
   controls.setAttribute("aria-label", "Token category");
@@ -102,8 +133,14 @@ function dailyChart(data, category) {
   draw(category);
   const details = el("details", undefined, "usage-daily-data");
   details.append(
-    el("summary", "View daily token counts"),
-    usageTable("Date", data.daily || [], "day"),
+    el("summary", "View exact token counts"),
+    usageTable(
+      isHourly(data) ? "Time" : "Date",
+      series(data),
+      "day",
+      (row) => el("span", pointLabel(row, data)),
+      true,
+    ),
   );
   section.append(details);
   return section;
@@ -111,11 +148,11 @@ function dailyChart(data, category) {
 function tokenChart(data, key) {
   const root = el("div", undefined, "token-chart");
   const label = categories.find(([name]) => name === key)[1];
-  const points = data.daily || [];
+  const points = series(data);
   root.append(
     el(
       "p",
-      `${label} tokens · ${data.start} to ${data.end} · ${data.timezone || "Timezone not reported"}`,
+      `${label} tokens · ${rangeLabel(data, data.start)} to ${rangeLabel(data, data.end)} · ${data.timezone || "Timezone not reported"}`,
       "chart-caption",
     ),
   );
@@ -138,7 +175,7 @@ function tokenChart(data, key) {
   const graph = svg("svg", {
     viewBox: "0 0 900 230",
     role: "img",
-    "aria-label": `Daily ${label.toLowerCase()} tokens, ${data.timezone || "timezone unknown"}. Missing counts are unknown.`,
+    "aria-label": `${isHourly(data) ? "Hourly" : "Daily"} ${label.toLowerCase()} tokens, ${data.timezone || "timezone unknown"}. Missing counts are unknown.`,
   });
   const peak = Math.max(1, ...points.map((p) => p[key] || 0));
   for (const fraction of [0, 0.5, 1]) {
@@ -152,10 +189,7 @@ function tokenChart(data, key) {
       "text-anchor": "end",
       class: "chart-label",
     });
-    text.textContent = new Intl.NumberFormat("en", {
-      notation: "compact",
-      maximumFractionDigits: 1,
-    }).format(Math.round(peak * fraction));
+    text.textContent = number(Math.round(peak * fraction));
     graph.append(text);
   }
   const step = 800 / points.length;
@@ -171,13 +205,14 @@ function tokenChart(data, key) {
       class: known ? "chart-bar" : "token-unknown",
     });
     const title = svg("title");
-    title.textContent = `${point.day}: ${number(point[key])} ${label.toLowerCase()} tokens`;
+    title.textContent = `${pointLabel(point, data)}: ${exactNumber(point[key])} ${label.toLowerCase()} tokens`;
     mark.append(title);
     graph.append(mark);
     if (
       i === 0 ||
       i === points.length - 1 ||
-      (points.length <= 14 && i % 3 === 0 && points.length - 1 - i > 1)
+      (i % Math.ceil(points.length / (isHourly(data) ? 4 : 5)) === 0 &&
+        points.length - 1 - i > 1)
     ) {
       const text = svg("text", {
         x: 78 + i * step + step / 2,
@@ -185,7 +220,7 @@ function tokenChart(data, key) {
         "text-anchor": "middle",
         class: "chart-label",
       });
-      text.textContent = point.day.slice(5).replace("-", "/");
+      text.textContent = pointLabel(point, data, true);
       graph.append(text);
     }
   });
@@ -214,13 +249,13 @@ function coverage(data) {
   box.append(
     el(
       "summary",
-      `Import coverage incomplete · ${number(c.sources)} recorded sources`,
+      `Import coverage incomplete · ${exactNumber(c.sources)} recorded sources`,
     ),
   );
   box.append(
     el(
       "p",
-      `Unavailable sources: ${number(c.unavailable_sources)}. Undated points excluded: ${number(c.undated_points)}. Attribution conflicts: ${number(c.attribution_conflicts)}. Conflicting copies excluded: ${number(c.content_conflicts ?? 0)}. Last observed: ${timestamp(c.last_observed_at)}.`,
+      `Unavailable sources: ${exactNumber(c.unavailable_sources)}. Undated points excluded: ${exactNumber(c.undated_points)}. Attribution conflicts: ${exactNumber(c.attribution_conflicts)}. Conflicting copies excluded: ${exactNumber(c.content_conflicts ?? 0)}. Last observed: ${timestamp(c.last_observed_at)}.`,
     ),
   );
   box.append(
@@ -288,14 +323,18 @@ export async function renderAnalyticsPage(
       selectControl(
         "Period",
         [
+          ["1h", "Last hour"],
+          ["12h", "Last 12 hours"],
+          ["24h", "Last 24 hours"],
+          ["48h", "Last 48 hours"],
           ["7", "Last 7 days"],
           ["14", "Last 14 days"],
           ["30", "Last 30 days"],
           ["90", "Last 90 days"],
         ],
-        selection.days,
+        selection.period,
         (value) => {
-          selection.days = value;
+          selection.period = value;
           reload();
         },
       ),
@@ -324,7 +363,8 @@ export async function renderAnalyticsPage(
     dataRoot.append(el("p", "Loading token counts…", "usage-empty"));
     root.append(dataRoot);
     const query = new URLSearchParams({
-      days: selection.days,
+      [selection.period.endsWith("h") ? "hours" : "days"]:
+        selection.period.replace(/h$/, ""),
       client: selection.client,
     });
     if (kind === "person") query.set("person", id);
@@ -345,7 +385,7 @@ export async function renderAnalyticsPage(
         const item = el("div");
         item.append(
           el("dt", `${label} tokens`),
-          el("dd", number(data.totals?.[key])),
+          numberNode("dd", data.totals?.[key]),
         );
         totals.append(item);
       }
@@ -366,7 +406,7 @@ export async function renderAnalyticsPage(
               name.append(
                 el(
                   "small",
-                  `${number(row.sources)} sources · ${(row.people || []).length} observed contributors`,
+                  `${exactNumber(row.sources)} sources · ${(row.people || []).length} observed contributors`,
                 ),
               );
               return name;
