@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/app.css" />
     <script src="/app.js" type="module"></script>
   </head>
-  <body>
+  <body class="signed-out">
     <a class="skip" href="#main">Skip to content</a>
     <header>
       <a class="brand" href="/"
@@ -52,10 +52,10 @@
           <div class="download-options">
             <a
               class="download-primary"
-              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.2.1-preview/AI-Usage-Monitor-mac-arm64.zip"
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.3.0-preview/AI-Usage-Monitor-mac-arm64.zip"
               >Download for Apple silicon</a
             ><a
-              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.2.1-preview/AI-Usage-Monitor-mac-amd64.zip"
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.3.0-preview/AI-Usage-Monitor-mac-amd64.zip"
               >Intel Mac</a
             >
           </div>
@@ -294,9 +294,11 @@
           </div>
         </div>
         <p class="notice">
-          Account limits are shared. Per-project consumption is unknown;
-          observations aren’t live availability.
+          Account limits are shared. Project-level quota is not reported by the
+          provider.
         </p>
+        <div id="native-quotas"></div>
+        <h2 class="account-inventory-title">Account inventory</h2>
         <div id="account-list"></div>
         <details class="manager-only">
           <summary>Add or update an account</summary>

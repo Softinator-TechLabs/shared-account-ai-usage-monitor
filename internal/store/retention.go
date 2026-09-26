@@ -31,7 +31,7 @@ func (s *Store) Expire(ctx context.Context) error {
 			return e
 		}
 	}
-	_, e = s.DB.Exec(ctx, "DELETE FROM tm_chunks WHERE created_at<now()-interval '1 day'; DELETE FROM tm_tokens WHERE expires_at<now(); DELETE FROM tm_invites WHERE expires_at<now(); DELETE FROM tm_analysis_runs WHERE expires_at<now(); DELETE FROM tm_login_attempts WHERE window_start<now()-interval '1 day'")
+	_, e = s.DB.Exec(ctx, "DELETE FROM tm_native_quotas q USING tm_policies p WHERE q.workspace=p.workspace AND (p.body->>'retention_days')::int>0 AND q.received_at<now()-make_interval(days => (p.body->>'retention_days')::int); DELETE FROM tm_chunks WHERE created_at<now()-interval '1 day'; DELETE FROM tm_tokens WHERE expires_at<now(); DELETE FROM tm_invites WHERE expires_at<now(); DELETE FROM tm_analysis_runs WHERE expires_at<now(); DELETE FROM tm_login_attempts WHERE window_start<now()-interval '1 day'")
 	return e
 }
 func (s *Store) DeletionLedger(ctx context.Context, p c.Principal) ([]string, error) {

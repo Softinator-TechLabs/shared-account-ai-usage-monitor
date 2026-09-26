@@ -23,12 +23,13 @@ import (
 )
 
 type config struct {
-	Server            string   `json:"server"`
-	Token             string   `json:"token"`
-	Upstream          string   `json:"upstream"`
-	UpstreamTokenFile string   `json:"upstream_token_file"`
-	Policy            c.Policy `json:"policy"`
-	Account           string   `json:"declared_account,omitempty"`
+	CodexProfiles     []companion.CodexProfile `json:"codex_profiles,omitempty"`
+	Server            string                   `json:"server"`
+	Token             string                   `json:"token"`
+	Upstream          string                   `json:"upstream"`
+	UpstreamTokenFile string                   `json:"upstream_token_file"`
+	Policy            c.Policy                 `json:"policy"`
+	Account           string                   `json:"declared_account,omitempty"`
 }
 
 func main() {
@@ -38,7 +39,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: team-agent enroll|run|once|status|policy|ack|discard-queue --config FILE")
+		return errors.New("usage: team-agent enroll|run|once|quota-run|quota-once|status|policy|ack|discard-queue|discard-quota-queue --config FILE")
 	}
 	command := os.Args[1]
 	flags := flag.NewFlagSet(command, flag.ContinueOnError)
@@ -98,18 +99,65 @@ func run() error {
 	if cfg.Account != "" {
 		return errors.New("declared_account cannot identify historical prompts; remove it and manage assignments centrally")
 	}
+	if command == "ack" || command == "discard-queue" || command == "discard-quota-queue" {
+		for _, suffix := range []string{".lock", ".quota.lock"} {
+			lock := *path + suffix
+			if e = os.Mkdir(lock, 0700); e != nil {
+				return errors.New("pause both collectors before changing policy or discarding queues")
+			}
+			defer os.Remove(lock)
+		}
+	}
 	cl, e := companion.New(cfg.Server, cfg.Token)
 	if e != nil {
 		return e
 	}
 	q := &spool.Queue{Dir: *path + ".queue", MaxBytes: 1 << 30}
+	if command == "quota-run" || command == "quota-once" {
+		if len(cfg.CodexProfiles) == 0 {
+			cfg.CodexProfiles = companion.DefaultCodexProfile()
+		}
+		if len(cfg.CodexProfiles) > 16 {
+			return errors.New("configure 1-16 explicit codex_profiles first")
+		}
+		lock := *path + ".quota.lock"
+		if err := os.Mkdir(lock, 0700); err != nil {
+			return errors.New("quota collector already running or stale lock")
+		}
+		defer os.Remove(lock)
+		queue := &spool.Queue{Dir: *path + ".quota.queue", MaxBytes: 16 << 20}
+		for {
+			if len(cfg.CodexProfiles) == 0 {
+				cfg.CodexProfiles = companion.DefaultCodexProfile()
+			}
+			err := cl.QuotaCycle(ctx, queue, cfg.Policy.Version, cfg.CodexProfiles)
+			if command == "quota-once" {
+				return err
+			}
+			if err != nil {
+				log.Print(err)
+			}
+			timer := time.NewTimer(60 * time.Second)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil
+			case <-timer.C:
+			}
+		}
+	}
+
 	switch command {
 	case "status":
 		rows, e := q.Pending()
 		if e != nil {
 			return e
 		}
-		fmt.Printf("Queued revisions: %d; acknowledged policy: %d\n", len(rows), cfg.Policy.Version)
+		quotaRows, err := (&spool.Queue{Dir: *path + ".quota.queue"}).Pending()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Queued revisions: %d; quota observations: %d; acknowledged policy: %d\n", len(rows), len(quotaRows), cfg.Policy.Version)
 		return nil
 	case "policy":
 		p, e := cl.Policy(ctx)
@@ -118,9 +166,12 @@ func run() error {
 			fmt.Println(string(b))
 		}
 		return e
-	case "discard-queue":
+	case "discard-queue", "discard-quota-queue":
+		if command == "discard-quota-queue" {
+			q = &spool.Queue{Dir: *path + ".quota.queue"}
+		}
 		if !*confirm {
-			return errors.New("--confirm required; discarded revisions can be recollected from upstream")
+			return errors.New("--confirm required; discarded quota observations cannot be recreated; transcript snapshots can be recollected")
 		}
 		rows, e := q.Pending()
 		if e != nil {
@@ -130,6 +181,9 @@ func run() error {
 			if e = q.Ack(r.Key); e != nil {
 				return e
 			}
+		}
+		if command == "discard-quota-queue" {
+			return nil
 		}
 		if err := os.Remove(*path + ".checkpoint.json"); err != nil && !os.IsNotExist(err) {
 			return err
@@ -147,8 +201,12 @@ func run() error {
 		if e != nil {
 			return e
 		}
-		if len(rows) > 0 {
-			return errors.New("deliver or explicitly discard pending queue before acknowledging new policy")
+		quotaRows, err := (&spool.Queue{Dir: *path + ".quota.queue"}).Pending()
+		if err != nil {
+			return err
+		}
+		if len(rows) > 0 || len(quotaRows) > 0 {
+			return errors.New("deliver or explicitly discard both pending queues before acknowledging new policy")
 		}
 		if e = cl.Request(ctx, "POST", "/api/v1/device/ack", map[string]int{"version": *version}, nil); e != nil {
 			return e

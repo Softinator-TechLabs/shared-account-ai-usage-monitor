@@ -1,3 +1,4 @@
+import { renderQuotas } from "./quota-view.js";
 import {
   renderOverview,
   sessionActions,
@@ -127,6 +128,7 @@ async function init() {
   try {
     state.me = await api("/me");
     state.readOnly = ["debug", "read"].includes(state.me.principal.token_kind);
+    document.body.classList.remove("signed-out");
     $("#login").hidden = true;
     $("#people").hidden = false;
     const p = state.me.policy;
@@ -188,6 +190,9 @@ async function init() {
   }
 }
 async function showLogin() {
+  document.body.classList.add("signed-out");
+  $("#policy-banner").hidden = true;
+  $("#identity").replaceChildren();
   for (const name of ["people", "activity", "accounts", "settings"])
     $("#" + name).hidden = true;
   $("#login").hidden = false;
@@ -559,7 +564,11 @@ function field(label, tag, name, options) {
   return el;
 }
 async function accounts() {
-  const rows = await api("/accounts");
+  const [rows, observations] = await Promise.all([
+    api("/accounts"),
+    api("/quota-observations"),
+  ]);
+  renderQuotas($("#native-quotas"), observations);
   const root = $("#account-list");
   root.replaceChildren();
   if (!rows.length)

@@ -5,7 +5,7 @@ Read `README.md`, `docs/index.md`, then only the relevant module and fixture. Th
 ## Invariants
 
 - Native subscription clients remain native; no inference API gateway is required.
-- AgentsView is a separately installed upstream, accessed only by the versioned Session API adapter. Preserve its credit and license boundaries; do not fork its parsers casually.
+- AgentsView is an independently versioned upstream. The approved target reuses its central sync, reader, search and analytics; see `docs/agentsview-first.md` and its linked implementation plan before product work. The deployed Session API archive remains the migration fallback. Preserve credit, public-interface and license boundaries; do not fork parsers or expand a competing general-purpose reader.
 - Do not log or commit prompts, credentials, invitation files, spools, backups or real identity mappings. Synthetic full/no-redaction fixtures are allowed and must say so.
 - Policy is explicit, acknowledged, versioned and enforced on both sides. Full/none means no hidden masking. Metadata mode must not retain raw prompts. Never claim known-secret-pattern filtering is exhaustive.
 - Keep historical person/account/model unknown when evidence is missing. Declared assignment is not observed usage; observed device owner is not proof of the author.

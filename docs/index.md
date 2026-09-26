@@ -1,10 +1,12 @@
 # Product navigation
 
 - [Start and demo](../README.md)
+- [Approved AgentsView-first design](agentsview-first.md) and [next implementation plan](superpowers/plans/2026-09-26-agentsview-first.md)
 - [Deployment and OIDC](deployment.md)
 - [Mac setup, activity charts and compact work summaries](device-and-activity.md)
 - [Device enrollment and lifecycle](device-install.md)
 - [Architecture / evidence boundaries](architecture.md)
+- [Native Codex quota collection and evidence limits](native-quota.md)
 - [Agent coaching and MCP](coaching.md)
 - [Verification and failure fixtures](verification.md)
 - [Current delivery status](status.md)

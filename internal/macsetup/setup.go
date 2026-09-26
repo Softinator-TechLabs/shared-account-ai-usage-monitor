@@ -177,8 +177,13 @@ func serviceAction(ctx context.Context, domain, file, target string, start bool,
 	return run(ctx, "/bin/launchctl", "bootout", target)
 }
 func Service(ctx context.Context, home, name string, start bool) error {
-	if name != "agentsview" && name != "companion" {
+	if name != "agentsview" && name != "companion" && name != "quota" {
 		return errors.New("unknown background service")
+	}
+	if name == "quota" {
+		if _, e := os.Stat(serviceFile(home, name)); os.IsNotExist(e) {
+			return nil
+		}
 	}
 	domain := fmt.Sprintf("gui/%d", os.Getuid())
 	target := domain + "/com.softinator.ai-usage." + name
@@ -282,7 +287,7 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 		return e
 	}
 	defer os.Remove(privateInvite)
-	for _, name := range []string{"agentsview", "companion"} {
+	for _, name := range []string{"agentsview", "companion", "quota"} {
 		for _, suffix := range []string{".stdout.log", ".stderr.log"} {
 			p := filepath.Join(root, name+suffix)
 			if _, e = os.Stat(p); os.IsNotExist(e) {
@@ -300,6 +305,10 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 	if e = write(serviceFile(home, "companion"), plist(home, root, "companion", agentargs), 0600); e != nil {
 		return e
 	}
+	quotaargs := []string{"/usr/bin/env", "-i", "HOME=" + home, "PATH=/usr/bin:/bin:/usr/sbin:/sbin", agent, "quota-run", "--config", cfg}
+	if e = write(serviceFile(home, "quota"), plist(home, root, "quota", quotaargs), 0600); e != nil {
+		return e
+	}
 	// Prepare every local artifact before consuming the one-use invitation.
 	// Once enrollment saves the config, Resume can complete service startup.
 	progress("Connecting to your workspace…")
@@ -310,7 +319,10 @@ func Install(ctx context.Context, home, resources, file, server string, ack int,
 	if e = Service(ctx, home, "agentsview", true); e != nil {
 		return e
 	}
-	return Service(ctx, home, "companion", true)
+	if e = Service(ctx, home, "companion", true); e != nil {
+		return e
+	}
+	return Service(ctx, home, "quota", true)
 }
 func hostname() string {
 	h, e := os.Hostname()

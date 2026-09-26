@@ -95,3 +95,27 @@ func TestHeartbeatPrecedesSlowInitialBackfill(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestQuotaQueueMustBeResolvedBeforePolicyAcknowledgement(t *testing.T) {
+	central := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.Write([]byte(`{"version":2}`)) }))
+	defer central.Close()
+	path := filepath.Join(t.TempDir(), "config.json")
+	b, _ := json.Marshal(config{Server: central.URL, Token: "synthetic", Policy: c.Policy{Version: 1}})
+	os.WriteFile(path, b, 0600)
+	q := spool.Queue{Dir: path + ".quota.queue"}
+	q.Append([]byte(`{"policy_version":1}`))
+	old := os.Args
+	defer func() { os.Args = old }()
+	os.Args = []string{"team-agent", "ack", "--config", path, "--ack-version", "2"}
+	if run() == nil {
+		t.Fatal("ack stranded old quota queue")
+	}
+	os.Args = []string{"team-agent", "discard-quota-queue", "--config", path, "--confirm"}
+	if e := run(); e != nil {
+		t.Fatal(e)
+	}
+	os.Args = []string{"team-agent", "ack", "--config", path, "--ack-version", "2"}
+	if e := run(); e != nil {
+		t.Fatal(e)
+	}
+}

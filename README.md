@@ -1,5 +1,7 @@
 # Shared Account AI Usage Monitor
 
+**Approved next direction:** reuse official AgentsView for central sessions, search and analytics; focus this project on people, shared-account evidence, quota history and coaching. See the [design and migration gates](docs/agentsview-first.md). The features below describe the current prototype, not a completed migration.
+
 An experimental, self-hosted team archive for native subscription coding-agent sessions. Search full available prompts, inspect recorded models and projects, discuss individual messages, and give **separate prompt and delivered-work ratings** with evidence.
 
 Built with [AgentsView](https://github.com/kenn-io/agentsview) integration, an independent project by Kenn Software LLC. This is not an official AgentsView product. AgentsView stays separately installed and maintained upstream; this project owns the team layer.
@@ -11,7 +13,7 @@ Built with [AgentsView](https://github.com/kenn-io/agentsview) integration, an i
 - PostgreSQL archive, replay-safe revisions, private offline queue and chunked uploads.
 - Email/password invitations, optional OIDC login, revocation, upload-only device tokens and read-only MCP tokens.
 - Full-text search, source-aware conversations, human discussion, independent ratings and scoped external-agent drafts.
-- Declared subscription-account assignments and timestamped manual quota/reset observations.
+- Native Codex account/quota observations with reset times, device provenance and durable offline replay; declared assignments and manual observations remain separate.
 - Source deletion, expiry and deletion-ledger replay on restore.
 - Go binaries for companion/server/MCP, embedded browser UI and deployment examples.
 
