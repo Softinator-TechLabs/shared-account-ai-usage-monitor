@@ -27,7 +27,20 @@ func (s *Server) usageRoutes() {
 	})
 	s.human("GET /api/v1/analytics", func(w http.ResponseWriter, r *http.Request, p c.Principal) {
 		q := r.URL.Query()
-		days := 14
+		days, hours := 14, 0
+		if q.Has("hours") {
+			if q.Has("days") {
+				fail(w, c.ErrInvalid)
+				return
+			}
+			var err error
+			hours, err = strconv.Atoi(q.Get("hours"))
+			if err != nil || hours == 0 {
+				fail(w, c.ErrInvalid)
+				return
+			}
+			days = 0
+		}
 		if q.Get("days") != "" {
 			var e error
 			days, e = strconv.Atoi(q.Get("days"))
@@ -36,7 +49,7 @@ func (s *Server) usageRoutes() {
 				return
 			}
 		}
-		v, e := s.store.Analytics(r.Context(), p, store.UsageFilter{Days: days, Person: q.Get("person"), Project: q.Get("project"), Client: q.Get("client")}, time.Now())
+		v, e := s.store.Analytics(r.Context(), p, store.UsageFilter{Days: days, Hours: hours, Person: q.Get("person"), Project: q.Get("project"), Client: q.Get("client")}, time.Now())
 		if e != nil {
 			fail(w, e)
 			return

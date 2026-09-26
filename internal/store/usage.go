@@ -64,7 +64,7 @@ func (s *Store) ObserveUsage(ctx context.Context, p c.Principal, v c.UsageCaptur
 }
 
 type UsageFilter struct {
-	Days                    int
+	Days, Hours             int
 	Person, Project, Client string
 }
 type UsageCounters struct {
@@ -94,6 +94,7 @@ func (v *UsageCounters) add(p c.UsagePoint) {
 type UsageGroup struct {
 	UsageCounters
 	Day       string   `json:"day,omitempty"`
+	Timestamp string   `json:"timestamp,omitempty"`
 	Person    string   `json:"person,omitempty"`
 	Project   string   `json:"project,omitempty"`
 	Client    string   `json:"client,omitempty"`
@@ -126,6 +127,8 @@ type UsageCoverage struct {
 	LastObservedAt       *time.Time `json:"last_observed_at"`
 }
 type UsageAnalytics struct {
+	Granularity string        `json:"granularity"`
+	Series      []UsageGroup  `json:"series"`
 	Start       string        `json:"start"`
 	End         string        `json:"end"`
 	Timezone    string        `json:"timezone"`
@@ -168,7 +171,9 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 	if p.Device != "" || p.Workspace == "" || p.Person == "" {
 		return d, c.ErrForbidden
 	}
-	if f.Days != 7 && f.Days != 14 && f.Days != 30 && f.Days != 90 || len(f.Person) > 128 || len(f.Project) > 1024 || len(f.Client) > 64 {
+	validDays := f.Hours == 0 && (f.Days == 7 || f.Days == 14 || f.Days == 30 || f.Days == 90)
+	validHours := f.Days == 0 && (f.Hours == 1 || f.Hours == 12 || f.Hours == 24 || f.Hours == 48)
+	if (!validDays && !validHours) || len(f.Person) > 128 || len(f.Project) > 1024 || len(f.Client) > 64 {
 		return d, c.ErrInvalid
 	}
 	policy, e := s.Policy(ctx, p.Workspace)
@@ -181,12 +186,30 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 	}
 	zone, _ := time.LoadLocation(d.Timezone)
 	today := now.In(zone)
+	d.Granularity = "day"
 	d.End = today.Format("2006-01-02")
 	d.Start = today.AddDate(0, 0, 1-f.Days).Format("2006-01-02")
 	daily, people, projects, clients, models := map[string]*UsageGroup{}, map[string]*UsageGroup{}, map[string]*UsageGroup{}, map[string]*UsageGroup{}, map[string]*UsageGroup{}
-	for i := 0; i < f.Days; i++ {
-		day := today.AddDate(0, 0, -i).Format("2006-01-02")
-		group(daily, day).Day = day
+	var start time.Time
+	bucketWidth := time.Hour
+	if f.Hours > 0 {
+		start = now.Add(-time.Duration(f.Hours) * time.Hour)
+		d.Start = start.UTC().Format(time.RFC3339Nano)
+		d.End = now.UTC().Format(time.RFC3339Nano)
+		d.Granularity = "hour"
+		if f.Hours == 1 {
+			bucketWidth = 5 * time.Minute
+			d.Granularity = "5m"
+		}
+		for at := start; at.Before(now); at = at.Add(bucketWidth) {
+			key := at.UTC().Format(time.RFC3339Nano)
+			group(daily, key).Timestamp = key
+		}
+	} else {
+		for i := 0; i < f.Days; i++ {
+			day := today.AddDate(0, 0, -i).Format("2006-01-02")
+			group(daily, day).Day = day
+		}
 	}
 	// Conflicts are computed before person filtering: copies cannot silently become two employees' work.
 	rows, e := s.DB.Query(ctx, `SELECT DISTINCT ON(u.source_ref) u.body,u.person,(SELECT count(DISTINCT person) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT (body - 'observed_at' - 'revision' - 'policy_version')) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref) FROM tm_usage u WHERE u.workspace=$1 AND ($2 OR u.person=$3) ORDER BY u.source_ref,u.observed_at DESC,u.person,u.device`, p.Workspace, all, p.Person)
@@ -237,16 +260,20 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 				d.Coverage.UndatedPoints++
 				continue
 			}
-			day := at.In(zone).Format("2006-01-02")
-			if day < d.Start || day > d.End {
+			key := at.In(zone).Format("2006-01-02")
+			if f.Hours > 0 {
+				if at.Before(start) || !at.Before(now) {
+					continue
+				}
+				key = start.Add(at.Sub(start) / bucketWidth * bucketWidth).UTC().Format(time.RFC3339Nano)
+			} else if key < d.Start || key > d.End {
 				continue
 			}
 			if !all && conflict {
 				continue
 			}
 			d.Totals.add(pt)
-			g := group(daily, day)
-			g.Day = day
+			g := group(daily, key)
 			g.add(pt, v.SourceRef, person)
 			if person != "" {
 				g = group(people, person)
@@ -275,7 +302,10 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 	if e = rows.Err(); e != nil {
 		return d, e
 	}
-	d.Daily = groups(daily)
+	d.Series = groups(daily)
+	if f.Hours == 0 {
+		d.Daily = d.Series
+	}
 	d.People = groups(people)
 	d.Projects = groups(projects)
 	d.Clients = groups(clients)

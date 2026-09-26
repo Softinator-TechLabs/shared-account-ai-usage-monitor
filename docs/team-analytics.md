@@ -6,16 +6,18 @@ The workspace answers “which enrolled devices used which coding clients, in wh
 
 `team-agent analytics-run --config /private/team-agent.json` is independent of the full transcript queue and quota worker. It enumerates official AgentsView sessions and reads each source's public `usage?breakdown=true` response. It projects timestamps, model and input/output/cache counters; prices, prompts and raw tool content are not part of this feed. The installed v0.44.0 API was probed before implementation; no native parsers were copied.
 
-Daily buckets use event timestamps in Asia/Kolkata. Missing timestamps are excluded and counted; missing counters stay null, known zero remains zero. Input, output, cache read and cache write are separate categories because provider conventions differ. Project names are recorded labels, not verified repository identities. A source on multiple devices counts once when copies agree. Conflicting content is excluded; different owners cannot each claim the same source. A newer capture replaces its old projection instead of adding its totals again. Unchanged reconciliation does not extend retention.
+Daily buckets use event timestamps in Asia/Kolkata. Rolling 1/12/24/48-hour periods use the exact request-time interval, including its start and excluding its end. The last hour uses twelve five-minute buckets; the longer hour periods use one-hour buckets, anchored to the interval start. Chart labels use Asia/Kolkata. Missing timestamps are excluded and counted; missing counters stay null, known zero remains zero. Input, output, cache read and cache write are separate categories because provider conventions differ. Project names are recorded labels, not verified repository identities. A source on multiple devices counts once when copies agree. Conflicting content is excluded; different owners cannot each claim the same source. A newer capture replaces its old projection instead of adding its totals again. Unchanged reconciliation does not extend retention.
 
 Checkpoints advance only after a durable server acknowledgement. The worker checks the current policy before reading/uploading and pauses on policy mismatch. It runs every five minutes and reconciles unchanged records hourly. A deleted source is suppressed locally and cannot be restored through replay. Aggregate coverage is visible; collected sources do not prove that all upstream history was available.
 
 ## Pages and accounts
 
-- People names open `#person/<id>`: daily token categories, coding clients, models, projects, observed subscriptions and configured device viewers.
-- Projects opens `#projects`; each label opens `#project/<label>` with daily counters and observed device owners.
+- People names open `#person/<id>`: token categories, coding clients, models, projects, observed subscriptions and configured device viewers.
+- Projects opens `#projects`; each label opens `#project/<label>` with period counters and observed device owners.
 - Provider plus account identity separates Claude and Codex even when email matches. These account observations are not evidence that an individual historical prompt used that account.
 - Native quota percentages remain account-wide. Employee/project quota percentages remain unknown. API-equivalent dollar prices are never treated as subscription spending.
+
+The dashboard defaults to Last 24 hours, with Last hour, Last 12 hours and Last 48 hours ahead of the existing day periods. Token totals, chart axes and breakdown tables use K/M/B with up to two decimals; values below 1,000 remain plain. Hover and accessible labels retain exact counts, and the chart has an exact-count disclosure. This presentation never rounds the API data.
 
 ## AgentsView links
 
@@ -27,7 +29,7 @@ A loopback URL opens only on that same computer. A LAN URL requires that device'
 
 ## Read-only MCP
 
-`usage_analytics` accepts string `days` (7, 14, 30, 90), `person`, `project`, `client`. It returns the same permission-scoped daily/category/group data as the dashboard, including missing-data and copy-conflict coverage. `list_quota_observations` reports timestamped account-wide readings. `list_device_viewers` returns visible origins and key availability, never credentials. Existing session/review tools remain available.
+`usage_analytics` accepts string `hours` (1, 12, 24, 48) or `days` (7, 14, 30, 90), plus `person`, `project`, `client`. Supplying both period types is rejected; omitting both retains the API default of 14 days. `/api/v1/analytics` uses the same query parameters. The response includes `granularity` (`5m`, `hour` or `day`) and `series`; hour-period points carry an ISO `timestamp`. Day responses retain the legacy `daily` array and date-only bounds. Hour responses use precise ISO bounds and leave `daily` empty. It returns the same permission-scoped period/category/group data as the dashboard, including missing-data and copy-conflict coverage. `list_quota_observations` reports timestamped account-wide readings. `list_device_viewers` returns visible origins and key availability, never credentials. Existing session/review tools remain available.
 
 ## Device rollout
 

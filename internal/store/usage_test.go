@@ -146,3 +146,35 @@ func TestUsageSecretPolicyEnforcedAtStore(t *testing.T) {
 		t.Fatal("policy bypass", d, e)
 	}
 }
+
+func TestUsageRollingHoursExactBoundsAndBuckets(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	now := time.Date(2026, 9, 26, 16, 7, 0, 0, time.UTC)
+	for _, hours := range []int{1, 12, 24, 48} {
+		start := now.Add(-time.Duration(hours) * time.Hour)
+		v := c.UsageCapture{SourceRef: "rolling", Revision: "1", PolicyVersion: 1, Client: "claude", ObservedAt: time.Now().UTC(), Coverage: "reported", Points: []c.UsagePoint{}}
+		for _, at := range []time.Time{start.Add(-time.Nanosecond), start, start.Add(time.Minute), now.Add(-time.Nanosecond), now, now.Add(time.Minute)} {
+			v.Points = append(v.Points, c.UsagePoint{Timestamp: at.Format(time.RFC3339Nano), OutputTokens: amount(1)})
+		}
+		if e := s.ObserveUsage(ctx, alice(), v); e != nil {
+			t.Fatal(e)
+		}
+		d, e := s.Analytics(ctx, owner(), UsageFilter{Hours: hours}, now)
+		want := hours
+		if hours == 1 {
+			want = 12
+		}
+		if e != nil || d.Totals.OutputTokens == nil || *d.Totals.OutputTokens != 3 || len(d.Series) != want || len(d.Daily) != 0 {
+			t.Fatalf("hours=%d data=%+v err=%v", hours, d, e)
+		}
+		if d.Start != start.Format(time.RFC3339Nano) || d.End != now.Format(time.RFC3339Nano) {
+			t.Fatal("not rolling bounds", d.Start, d.End)
+		}
+	}
+	for _, f := range []UsageFilter{{Hours: 2}, {Hours: 24, Days: 7}, {Hours: -1}} {
+		if _, e := s.Analytics(ctx, owner(), f, now); !errors.Is(e, c.ErrInvalid) {
+			t.Fatal("invalid period accepted", f, e)
+		}
+	}
+}
