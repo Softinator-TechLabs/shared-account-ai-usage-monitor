@@ -649,6 +649,11 @@ aside {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+#session-list {
+  max-height: min(68vh, 780px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 .session-link {
   width: 100%;
   text-align: left;
