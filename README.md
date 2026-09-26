@@ -13,7 +13,7 @@ Built with [AgentsView](https://github.com/kenn-io/agentsview) integration, an i
 - PostgreSQL archive, replay-safe revisions, private offline queue and chunked uploads.
 - Email/password invitations, optional OIDC login, revocation, upload-only device tokens and read-only MCP tokens.
 - Full-text search, source-aware conversations, human discussion, independent ratings and scoped external-agent drafts.
-- Declared subscription-account assignments and timestamped manual quota/reset observations.
+- Native Codex account/quota observations with reset times, device provenance and durable offline replay; declared assignments and manual observations remain separate.
 - Source deletion, expiry and deletion-ledger replay on restore.
 - Go binaries for companion/server/MCP, embedded browser UI and deployment examples.
 

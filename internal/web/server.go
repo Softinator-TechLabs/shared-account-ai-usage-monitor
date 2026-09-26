@@ -153,6 +153,7 @@ func (s *Server) cookie(w http.ResponseWriter, value string, age int) {
 	http.SetCookie(w, &http.Cookie{Name: "team_session", Value: value, Path: "/", HttpOnly: true, Secure: !s.config.Demo, SameSite: http.SameSiteLaxMode, MaxAge: age})
 }
 func (s *Server) routes() {
+	s.quotaRoutes()
 	s.passwordRoutes()
 	s.debugRoutes()
 	s.mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {

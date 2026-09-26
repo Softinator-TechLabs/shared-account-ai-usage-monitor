@@ -6,6 +6,7 @@
 - [Mac setup, activity charts and compact work summaries](device-and-activity.md)
 - [Device enrollment and lifecycle](device-install.md)
 - [Architecture / evidence boundaries](architecture.md)
+- [Native Codex quota collection and evidence limits](native-quota.md)
 - [Agent coaching and MCP](coaching.md)
 - [Verification and failure fixtures](verification.md)
 - [Current delivery status](status.md)

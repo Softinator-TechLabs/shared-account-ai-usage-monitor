@@ -30,7 +30,7 @@ func main() {
 	case "install":
 		e = macsetup.Install(ctx, home, *resources, *file, *server, *ack, func(s string) { fmt.Println(s) })
 	case "pause", "resume":
-		for _, name := range []string{"companion", "agentsview"} {
+		for _, name := range []string{"quota", "companion", "agentsview"} {
 			if e = macsetup.Service(ctx, home, name, os.Args[1] == "resume"); e != nil {
 				break
 			}

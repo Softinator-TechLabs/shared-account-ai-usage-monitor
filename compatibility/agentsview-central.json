@@ -1,0 +1,9 @@
+{
+  "upstream": "0.44.0",
+  "synthetic_sessions": 1,
+  "pg_push_success": true,
+  "repeated_push_idempotent": true,
+  "device_isolation_gate": "failed: shared schema DML role can read/update all session rows",
+  "selected_next_transport": "evaluate released artifact exchange behind scoped upload; not production enabled",
+  "large_session_gate": "not run: direct device PG access rejected before rollout"
+}
