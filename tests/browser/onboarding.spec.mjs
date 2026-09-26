@@ -81,3 +81,35 @@ test("large prompts stay collapsed behind a bounded work summary", async ({
       .evaluate((n) => n.clientHeight <= innerHeight * 0.62 + 2),
   ).toBeTruthy();
 });
+
+test("many session results do not stretch the document", async ({ page }) => {
+  await page.route("**/api/v1/activity?*", async (route) => {
+    const response = await route.fetch();
+    const rows = await response.json();
+    await route.fulfill({
+      response,
+      json: Array.from({ length: 50 }, (_, index) => ({
+        ...rows[0],
+        id: `synthetic-${index}`,
+        preview: "A synthetic session preview for bounded scrolling.",
+      })),
+    });
+  });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Explore as owner" }).click();
+  await page.getByRole("button", { name: "Sessions", exact: true }).click();
+  await expect(page.locator(".session-link")).toHaveCount(50);
+  const list = page.locator("#session-list");
+  expect(
+    await list.evaluate(
+      (n) =>
+        n.scrollHeight > n.clientHeight &&
+        n.clientHeight <= innerHeight * 0.68 + 2,
+    ),
+  ).toBeTruthy();
+  expect(
+    await page.evaluate(() => document.documentElement.scrollHeight < 1600),
+  ).toBeTruthy();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await list.evaluate((n) => n.clientHeight <= 310)).toBeTruthy();
+});
