@@ -1,5 +1,7 @@
 # Delivery status · 2026-09-26
 
+[Original requirements and missing implementation audit](requirements-audit.md) — includes full-history failure, per-device viewer access and employee quota attribution gaps.
+
 **Next delivery gate:** [AgentsView-first pilot and quota plan](superpowers/plans/2026-09-26-agentsview-first.md). Direction approved; central migration and LAN access are pending; the native Codex quota increment is implemented below. The owner confirmed that the authenticated local AgentsView viewer opens. Existing large-history storage failure remains open.
 
 Status: experimental release with one live owner pilot. Not certified for general employee rollout.

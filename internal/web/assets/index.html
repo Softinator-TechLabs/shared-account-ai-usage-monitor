@@ -205,6 +205,21 @@
             ><small>Download and share privately. Valid for 24 hours.</small>
           </form>
         </section>
+        <div class="people-toolbar">
+          <div class="directory-tabs">
+            <strong
+              >Everyone <span id="people-count" class="count"></span></strong
+            ><span id="device-summary" class="muted"></span>
+          </div>
+          <label class="directory-search"
+            ><span class="sr-only">Find a person</span
+            ><input
+              id="people-search"
+              type="search"
+              placeholder="Find a person…"
+          /></label>
+        </div>
+        <div id="people-list" class="people-grid"></div>
         <section class="analytics" aria-label="Workspace activity">
           <div class="analytics-heading">
             <h2>Workspace activity</h2>
@@ -226,21 +241,6 @@
             <p>Loading activity…</p>
           </div>
         </section>
-        <div class="people-toolbar">
-          <div class="directory-tabs">
-            <strong
-              >Everyone <span id="people-count" class="count"></span></strong
-            ><span id="device-summary" class="muted"></span>
-          </div>
-          <label class="directory-search"
-            ><span class="sr-only">Find a person</span
-            ><input
-              id="people-search"
-              type="search"
-              placeholder="Find a person…"
-          /></label>
-        </div>
-        <div id="people-list" class="people-grid"></div>
       </section>
       <section id="activity" hidden>
         <div class="page-heading">

@@ -2113,3 +2113,81 @@ body.signed-out footer {
 .quota-window meter::-moz-meter-bar {
   background: var(--action);
 }
+
+/* Keep observed account evidence readable at every directory width. */
+.person-projects,
+.person-quota {
+  display: grid;
+  gap: 6px;
+  margin-top: 16px;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
+.person-projects > span {
+  font-size: 12px;
+}
+.quota-unknown {
+  display: block;
+  margin-top: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.directory .status {
+  white-space: normal;
+}
+@media (max-width: 1200px) {
+  .directory,
+  .directory tbody {
+    display: block;
+  }
+  .directory thead {
+    display: none;
+  }
+  .directory tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 24px;
+    padding: 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .directory td,
+  .directory td:nth-child(3) {
+    display: block;
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .directory td:first-child {
+    grid-column: 1/-1;
+  }
+  .directory td:nth-child(2),
+  .directory td:nth-child(3),
+  .directory .has-devices td:nth-child(2) {
+    grid-column: auto;
+  }
+  .directory td:nth-child(2)::before,
+  .directory td:nth-child(3)::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  .directory .person-actions {
+    justify-content: flex-end;
+  }
+}
+@media (max-width: 540px) {
+  .directory tr {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    padding: 20px;
+  }
+  .directory .person-actions {
+    justify-content: flex-start;
+  }
+}
+
+.directory .device-row > .status {
+  flex-basis: 100%;
+}

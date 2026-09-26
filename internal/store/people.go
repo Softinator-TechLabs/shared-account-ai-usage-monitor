@@ -15,13 +15,19 @@ type Device struct {
 	ExpiresAt     time.Time  `json:"expires_at"`
 	PolicyVersion int        `json:"policy_version"`
 }
+type PersonProject struct {
+	Name     string `json:"name"`
+	Sessions int    `json:"sessions"`
+	LastDay  string `json:"last_day"`
+}
 type Person struct {
-	ID       string   `json:"id"`
-	Name     string   `json:"name"`
-	Role     string   `json:"role"`
-	Active   bool     `json:"active"`
-	Sessions int      `json:"sessions"`
-	Devices  []Device `json:"devices"`
+	Projects []PersonProject `json:"projects"`
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
+	Role     string          `json:"role"`
+	Active   bool            `json:"active"`
+	Sessions int             `json:"sessions"`
+	Devices  []Device        `json:"devices"`
 }
 
 func (s *Store) People(ctx context.Context, p c.Principal) ([]Person, error) {
@@ -68,6 +74,36 @@ func (s *Store) People(ctx context.Context, p c.Principal) ([]Person, error) {
 		rs.Close()
 		if e != nil {
 			return nil, e
+		}
+	}
+	zone, _ := time.LoadLocation("Asia/Kolkata")
+	from := time.Now().In(zone).AddDate(0, 0, -13).Format("2006-01-02")
+	through := time.Now().In(zone).Format("2006-01-02")
+	for i := range out {
+		out[i].Projects = []PersonProject{}
+		rs, err := s.DB.Query(ctx, `WITH latest AS (
+ SELECT DISTINCT ON (s.source_ref) m.body FROM tm_snapshots s
+ JOIN tm_snapshot_metrics m ON m.snapshot_id=s.id
+ WHERE s.workspace=$1 AND s.owner_id=$2
+ ORDER BY s.source_ref,s.received_at DESC,s.id DESC
+) SELECT body->>'project',count(*),max(body->>'day') FROM latest
+ WHERE body->>'day'>=$3 AND body->>'day'<=$4 AND coalesce(body->>'project','')<>''
+ GROUP BY body->>'project' ORDER BY max(body->>'day') DESC,count(*) DESC,body->>'project' LIMIT 5`, p.Workspace, out[i].ID, from, through)
+		if err != nil {
+			return nil, err
+		}
+		for rs.Next() {
+			var project PersonProject
+			if err = rs.Scan(&project.Name, &project.Sessions, &project.LastDay); err != nil {
+				rs.Close()
+				return nil, err
+			}
+			out[i].Projects = append(out[i].Projects, project)
+		}
+		err = rs.Err()
+		rs.Close()
+		if err != nil {
+			return nil, err
 		}
 	}
 	return out, nil

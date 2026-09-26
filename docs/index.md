@@ -1,5 +1,7 @@
 # Product navigation
 
+[Original requirements and missing implementation audit](requirements-audit.md) — includes full-history failure, per-device viewer access and employee quota attribution gaps.
+
 - [Start and demo](../README.md)
 - [Approved AgentsView-first design](agentsview-first.md) and [next implementation plan](superpowers/plans/2026-09-26-agentsview-first.md)
 - [Deployment and OIDC](deployment.md)
