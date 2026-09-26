@@ -1,4 +1,4 @@
-import { renderQuotas } from "./quota-view.js";
+import { renderQuotas, quotaAccounts } from "./quota-view.js";
 import {
   renderOverview,
   sessionActions,
@@ -20,6 +20,7 @@ const state = {
   busy: false,
   people: [],
   accounts: [],
+  quotaObservations: [],
 };
 const time = (value) =>
   value
@@ -666,9 +667,10 @@ async function settings() {
   }
 }
 async function people() {
-  [state.people, state.accounts] = await Promise.all([
+  [state.people, state.accounts, state.quotaObservations] = await Promise.all([
     api("/people"),
     api("/accounts"),
+    api("/quota-observations"),
   ]);
   renderPeople();
   await dashboard();
@@ -731,6 +733,19 @@ function renderPeople() {
     info.append(title, node("span", p.id, "person-email"));
     head.append(avatar, info);
     identity.append(head);
+    const projects = node("div", undefined, "person-projects");
+    projects.append(node("small", "Recorded projects · 14 days", "muted"));
+    for (const project of p.projects || []) {
+      const item = node(
+        "span",
+        `${project.name} · ${project.sessions} session${project.sessions === 1 ? "" : "s"}`,
+      );
+      item.title = `Session start dates · last ${project.last_day} · Asia/Kolkata`;
+      projects.append(item);
+    }
+    if (!p.projects?.length)
+      projects.append(node("small", "No recent project evidence", "muted"));
+    identity.append(projects);
     row.append(identity);
     const deviceCell = node("td");
     deviceCell.dataset.label = "Devices";
@@ -739,22 +754,33 @@ function renderPeople() {
     for (const d of p.devices || []) {
       const line = node("div", undefined, "device-row");
       const recent = d.last_seen && Date.now() - new Date(d.last_seen) < 120000;
+      const quotaConnected = state.quotaObservations.some(
+        (q) =>
+          q.person === p.id &&
+          q.device === d.name &&
+          Date.now() - Date.parse(q.received_at) >= 0 &&
+          Date.now() - Date.parse(q.received_at) < 180000,
+      );
+      const expired = d.expires_at && Date.parse(d.expires_at) <= Date.now();
+      const health = expired
+        ? "Enrollment expired"
+        : recent
+          ? "Connected"
+          : quotaConnected
+            ? "Quota connected · session collector stale"
+            : "No recent connection";
       const label = node("div");
       label.append(
         node("strong", d.name),
         node(
           "small",
-          `${d.os || "OS unknown"} · ${d.last_seen ? time(d.last_seen) : "Not seen yet"}`,
+          `${d.os || "OS unknown"} · Session collector: ${d.last_seen ? time(d.last_seen) : "not seen yet"}`,
         ),
       );
       line.append(
         icon("monitor"),
         label,
-        node(
-          "span",
-          recent ? "Connected" : "Offline",
-          recent ? "status online" : "status",
-        ),
+        node("span", health, recent && !expired ? "status online" : "status"),
       );
       if (
         !state.readOnly &&
@@ -787,8 +813,34 @@ function renderPeople() {
     const tags = node("div", undefined, "account-tags");
     const owned = state.accounts.filter((a) => a.assigned?.includes(p.id));
     for (const a of owned) tags.append(node("span", a.alias));
-    if (!owned.length) tags.append(node("span", "Unassigned", "muted"));
+    if (!owned.length)
+      tags.append(node("span", "No declared assignment", "muted"));
     accountCell.append(tags);
+    const observed = quotaAccounts(state.quotaObservations).filter((g) =>
+      g.history.some((observation) => observation.person === p.id),
+    );
+    for (const group of observed) {
+      const observation = node("div", undefined, "person-quota");
+      observation.append(
+        node("strong", group.latest.email),
+        node("small", "Observed on device · shared account", "muted"),
+      );
+      for (const w of group.latest.windows) {
+        if (typeof w.used_percent !== "number") continue;
+        observation.append(
+          node("span", `${w.used_percent}% account total`),
+          node(
+            "small",
+            `${w.name} · ${group.health} · ${time(group.latest.observed_at)}`,
+            "muted",
+          ),
+        );
+      }
+      accountCell.append(observation);
+    }
+    accountCell.append(
+      node("small", "Personal quota share: unknown", "quota-unknown"),
+    );
     row.append(accountCell);
     const activityCell = node("td");
     activityCell.dataset.label = "Sessions";
@@ -815,7 +867,11 @@ function renderPeople() {
     const actionCell = node("td");
     actionCell.className = "person-actions";
     if (!state.readOnly && state.me.principal.role === "owner" && p.active) {
-      const enroll = node("button", "Connect device", "connect-button");
+      const enroll = node(
+        "button",
+        p.devices?.length ? "Add another device" : "Connect device",
+        "connect-button",
+      );
       enroll.onclick = () => openDevice(p, enroll);
       actionCell.append(enroll);
       if (p.id.includes("@")) {
@@ -1038,7 +1094,8 @@ async function dashboard() {
   }
 }
 $("#activity-period").onchange = dashboard;
-$("#refresh-dashboard").onclick = dashboard;
+$("#refresh-dashboard").onclick = () =>
+  people().catch((e) => notify(e.message, true));
 let connectionPerson = null;
 let connectionOpener = null;
 function openDevice(person, opener) {
