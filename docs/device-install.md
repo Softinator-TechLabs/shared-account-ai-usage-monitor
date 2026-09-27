@@ -1,6 +1,6 @@
 # Device companion
 
-For macOS, start with **People → Connect device**. Download the Apple-silicon or Intel app, then open its private `.aiusage` connection file. The app shows policy and installs the required services. See [onboarding details and preview limitations](device-and-activity.md). The CLI below remains available for advanced use and Windows/Ubuntu.
+For macOS, use **Download Mac app** in the dashboard sidebar, or **People → Connect device**. Choose the Apple silicon or Intel `.dmg`, open it, drag **AI Usage Monitor** into Applications, and launch it there. Then open the private `.aiusage` connection file from **People → Connect device**. The app shows policy and installs the required services. The app runs in the macOS menu bar; **Show status…** opens its window, and closing that window leaves the menu bar app running. The installer has an app icon and an Applications shortcut. This preview is ad-hoc signed, not Apple notarized. See [onboarding details and preview limitations](device-and-activity.md). The CLI below remains available for advanced use and Windows/Ubuntu.
 
 
 1. Install the pinned official AgentsView release separately; verify its published checksum. Configure only the native profile roots agreed for collection. Bind its daemon to loopback and require authentication. For full available tool content, use `archive_content = "full"` and `result_content_blocked_categories = []`. Upstream source omissions remain explicit limitations.
@@ -31,8 +31,8 @@ Run the same foreground command with absolute paths under your user's OS service
 
 To uninstall, stop/remove the service in that manager, revoke the employee/device access, then explicitly decide whether to retain or remove the local queue/config. No silent removal is performed by the binary. Central source deletion/retention is separate from removing a device.
 
-## Mac background status (preview 0.6.0)
+## Mac background status (preview 0.7.0)
 
 The native app shows its own version/build, four LaunchAgent states, last successful analytics/quota cycle, the latest acknowledged analytics upload during backfill, and one state-aware Pause/Resume control. Refresh runs automatically every ten seconds while the window is open. `team-setup status --json` returns the same local health evidence without credentials or transcript/log content. Older collectors with no receipt show “no successful sync recorded”; a running process is not a successful sync. Failed attempts retain the last successful timestamp.
 
-You can close or quit the setup app. Enabled per-user LaunchAgents continue while that Mac account is logged in and the computer is awake. Pausing stops the local reader and collectors; resume explicitly restarts them. Sleeping/shutdown/logout stops collection until the Mac is active again. Previously uploaded history remains visible centrally even with the Mac off; local AgentsView links require the local service and a reachable device. The status display does not change firewall permissions or the collection policy.
+You can close the status window or quit the menu bar app. Enabled per-user LaunchAgents continue while that Mac account is logged in and the computer is awake. Pausing stops the local reader and collectors; resume explicitly restarts them. Sleeping/shutdown/logout stops collection until the Mac is active again. Previously uploaded history remains visible centrally even with the Mac off; local AgentsView links require the local service and a reachable device. The status display does not change firewall permissions or the collection policy.

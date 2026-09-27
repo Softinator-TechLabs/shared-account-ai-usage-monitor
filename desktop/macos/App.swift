@@ -3,6 +3,9 @@ import UniformTypeIdentifiers
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
   var window: NSWindow!
+  var statusItem: NSStatusItem!
+  let menuState = NSMenuItem(title: "Checking sync…", action: nil, keyEquivalent: "")
+  let menuToggle = NSMenuItem(title: "Pause sync", action: #selector(toggleSync), keyEquivalent: "")
   let heading = NSTextField(labelWithString: "Connect this Mac")
   let detail = NSTextField(
     wrappingLabelWithString: "Install the local collector and connect it to your workspace.")
@@ -32,6 +35,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   var running = false
   var workspace = ""
   var process: Process?
+  var installedHere: Bool {
+    let path = Bundle.main.bundleURL.standardizedFileURL.path
+    return path == "/Applications/AI Usage Monitor.app" ||
+      path == FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/AI Usage Monitor.app").path
+  }
   var root: URL {
     FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
       "Library/Application Support/Shared Account AI Usage Monitor")
@@ -39,7 +47,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   let viewerControls = NSStackView()
 
   func applicationDidFinishLaunching(_ notification: Notification) {
-    NSApp.setActivationPolicy(.regular)
+    if !consolidateInstances() { return }
+    NSApp.setActivationPolicy(.accessory)
+    makeStatusItem()
     window = NSWindow(
       contentRect: NSRect(x: 0, y: 0, width: 610, height: 650),
       styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
@@ -131,17 +141,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     item.submenu = appMenu
     NSApp.mainMenu = menu
     window.center()
-    window.makeKeyAndOrderFront(nil)
-    NSApp.activate(ignoringOtherApps: true)
     updateButton()
     if let path = pendingPath { load(path) } else { existing() }
+    if !configured { showWindow() }
   }
   func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+    return false
+  }
+  // Opening an older copy from another Applications folder must not leave two UI processes.
+  func consolidateInstances() -> Bool {
+    guard let identifier = Bundle.main.bundleIdentifier else { return true }
+    let ownVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+    for other in NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
+    where other.processIdentifier != ProcessInfo.processInfo.processIdentifier {
+      let otherVersion = other.bundleURL.flatMap { Bundle(url: $0) }?
+        .object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "0"
+      if otherVersion.compare(ownVersion, options: .numeric) != .orderedAscending {
+        other.activate(options: [])
+        NSApp.terminate(nil)
+        return false
+      }
+      other.terminate()
+    }
     return true
+  }
+  func makeStatusItem() {
+    statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    if let button = statusItem.button {
+      let mark = NSImage(contentsOf: Bundle.main.url(forResource: "MenuBarTemplate", withExtension: "png")!)
+      mark?.isTemplate = true
+      mark?.size = NSSize(width: 18, height: 18)
+      button.image = mark
+      button.toolTip = "AI Usage Monitor · checking sync"
+    }
+    let menu = NSMenu()
+    menu.addItem(menuState)
+    menu.addItem(.separator())
+    menu.addItem(withTitle: "Show status…", action: #selector(showWindow), keyEquivalent: "")
+    menu.addItem(withTitle: "Open workspace", action: #selector(openWorkspace), keyEquivalent: "")
+    menuToggle.target = self
+    menuToggle.isEnabled = false
+    menu.addItem(menuToggle)
+    menu.addItem(.separator())
+    for item in menu.items where item.action != nil { item.target = self }
+    let quit = menu.addItem(withTitle: "Quit AI Usage Monitor", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+    quit.target = NSApp
+    statusItem.menu = menu
+  }
+  @objc func showWindow() {
+    window.makeKeyAndOrderFront(nil)
+    NSApp.activate(ignoringOtherApps: true)
+    if configured { refreshStatus() }
   }
   func application(_ sender: NSApplication, openFiles filenames: [String]) {
     if let path = filenames.first {
-      if window == nil { pendingPath = path } else if !running { load(path) }
+      if window == nil { pendingPath = path } else if !running { load(path); showWindow() }
     }
     sender.reply(toOpenOrPrint: .success)
   }
@@ -203,18 +257,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       return
     }
     workspace = address.stringValue
-    // Keep the app accessible after the downloaded archive is removed.
-    let apps = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(
-      "Applications")
-    let destination = apps.appendingPathComponent("AI Usage Monitor.app")
-    do {
-      try FileManager.default.createDirectory(at: apps, withIntermediateDirectories: true)
-      if !FileManager.default.fileExists(atPath: destination.path) {
-        try FileManager.default.copyItem(at: Bundle.main.bundleURL, to: destination)
-      }
-    } catch {
-      status.stringValue =
-        "Could not save the app in ~/Applications. Check folder permissions and retry."
+    if !installedHere {
+      status.stringValue = "Move AI Usage Monitor to Applications, then open the connection file again."
       return
     }
     execute([
@@ -342,6 +386,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   }
   func showStatus(_ snapshot: [String: Any]) {
     let state = snapshot["state"] as? String ?? "unknown"
+    menuState.title = state == "running" ? "Sync running" : state == "paused" || state == "off" ? "Sync off" : "Sync needs attention"
+    statusItem.button?.toolTip = "AI Usage Monitor · \(menuState.title)"
     let titles = ["running": "Background services are running", "paused": "Sync is paused",
                   "off": "Background sync is off", "needs_attention": "Sync needs attention",
                   "not_configured": "This Mac is not connected", "unknown": "Sync status unavailable"]
@@ -363,6 +409,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     nextSyncAction = snapshot["action"] as? String ?? ""
     syncToggle.title = nextSyncAction == "pause" ? "Pause sync" : "Resume sync"
     syncToggle.isEnabled = !running && ["pause", "resume"].contains(nextSyncAction)
+    menuToggle.title = syncToggle.title
+    menuToggle.isEnabled = syncToggle.isEnabled
   }
   func syncSummary(_ name: String, _ value: Any?) -> String {
     guard let record = value as? [String: Any] else { return "\(name): sync evidence unavailable" }
