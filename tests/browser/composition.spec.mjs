@@ -316,7 +316,7 @@ test("grouping across branches preserves unknown activity counts", async ({
   ).toHaveCount(2);
 });
 
-test("quota summaries bound long interval lists, exclude unavailable deltas and preserve reset cycles", async ({
+test("quota summaries bound long interval lists, exclude missing observations and preserve reset cycles", async ({
   page,
 }) => {
   const many = Array.from({ length: 1000 }, (_, i) => ({
@@ -332,9 +332,9 @@ test("quota summaries bound long interval lists, exclude unavailable deltas and 
       {
         ...estimates[0],
         status: "unavailable",
-        observed_percentage_points: 90,
+        observed_percentage_points: null,
         estimated_percentage_points: null,
-        reason: "missing_weighted_usage",
+        reason: "missing_window_bounds",
       },
       { ...estimates[0], window: "secondary" },
       { ...estimates[0], resets_at: estimates[0].resets_at + 86400 },
@@ -343,14 +343,14 @@ test("quota summaries bound long interval lists, exclude unavailable deltas and 
   const groups = page.locator(".quota-estimate-interval");
   await expect(groups).toHaveCount(3);
   await expect(groups.first()).toContainText(
-    "Scheduled reset: 26 Sept 2026, 18:30 IST",
+    "Scheduled reset: 26 Sept 2026, 18:30:00 IST",
   );
   await expect(groups.first()).toContainText(
     "Observed account increase: 10 pp",
   );
   await expect(groups.first()).toContainText("Conditional estimate: 5 pp");
   await expect(groups.first()).toContainText(
-    "1,000 available intervals · 1 excluded intervals",
+    "1,000 observed intervals · 1,000 allocated intervals · 1 excluded from allocation",
   );
   await expect(groups.first().getByRole("table")).toHaveCount(0);
   await groups
@@ -382,4 +382,47 @@ test("many account windows are loaded in explicit bounded batches", async ({
   await expect(
     page.getByRole("button", { name: "Show more account windows" }),
   ).toBeHidden();
+});
+
+test("valid observed quota remains visible when undated capture withholds allocation", async ({
+  page,
+}) => {
+  const withheld = {
+    ...estimates[0],
+    status: "unavailable",
+    reason: "undated_usage_points",
+    observed_percentage_points: 4,
+    estimated_percentage_points: null,
+    allocations: [],
+  };
+  await fixture(page, {
+    quotaEstimates: [
+      withheld,
+      { ...withheld, resets_at: withheld.resets_at + 5 },
+      { ...estimates[0], window: "secondary" },
+      { ...withheld, window: "secondary" },
+    ],
+  });
+  const groups = page.locator(".quota-estimate-interval");
+  await expect(groups).toHaveCount(3);
+  await expect(groups.first()).toContainText("Observed account increase: 4 pp");
+  await expect(groups.first()).toContainText("Conditional estimate: Unknown");
+  await expect(groups.first()).toContainText(
+    "1 observed intervals · 0 allocated intervals · 1 excluded from allocation",
+  );
+  await expect(groups.first()).toContainText(
+    "Totals cover these intervals only.",
+  );
+  await expect(groups.first()).toContainText("undated usage points");
+  await expect(groups.first()).toContainText(
+    "Scheduled reset: 26 Sept 2026, 18:30:00 IST",
+  );
+  await expect(groups.nth(1)).toContainText(
+    "Scheduled reset: 26 Sept 2026, 18:30:05 IST",
+  );
+  await expect(groups.last()).toContainText("Observed account increase: 12 pp");
+  await expect(groups.last()).toContainText("Conditional estimate: 6 pp");
+  await expect(groups.last()).toContainText(
+    "2 observed intervals · 1 allocated intervals · 1 excluded from allocation",
+  );
 });

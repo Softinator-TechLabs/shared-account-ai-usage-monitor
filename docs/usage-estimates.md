@@ -62,7 +62,7 @@ For each account, bucket and window:
 
 An estimated interval assumes **the captured, associated activity represents the account's consumption during that interval**. Other machines, cloud tasks, ChatGPT/Claude application use, delayed provider accounting or provider-specific weights may be missing. Therefore even a complete local capture cannot prove actual per-employee quota debits. This version is a proportional conditional estimate, not an empirically calibrated model; it does not claim an accuracy percentage.
 
-Charts and MCP retain the observed increase separately from the allocated estimate and its reason. Missing estimates remain Unknown. The UI groups only the same account/window/reset and discloses unavailable intervals. Never combine weekly and short-window pp into one total, and never extrapolate a partial set of intervals into an entire week's consumption.
+Charts and MCP retain the observed increase separately from the allocated estimate and its reason. Account summaries total known same-cycle observed increases even when allocation is withheld; estimated totals include only eligible allocated intervals. Separate observed and allocated interval counts make this partial coverage explicit. Missing estimates remain Unknown. The UI groups only the same account/window/reset and discloses unavailable intervals. Never combine weekly and short-window pp into one total, and never extrapolate a partial set of intervals into an entire week's consumption.
 
 ## Periods, permissions and maintenance
 

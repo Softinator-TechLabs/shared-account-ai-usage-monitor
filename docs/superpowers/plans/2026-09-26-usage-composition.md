@@ -17,4 +17,6 @@ User-approved direction: explain the method publicly and implement employee self
 - [x] Add rate weights, Today bounds, composition groups and conservative quota allocation; boundary/privacy tests.
 - [x] Add accessible per-client pie charts, model/effort and project details, prompt/proposed-line counts and estimate states; browser tests.
 - [x] Document rates, assumptions, calibration limitations, privacy and receipt boundaries.
-- [ ] Full checks, fresh review, PR/CI, deployment and authenticated real-data verification. Upgrade collector separately; never claim a server deploy upgrades devices.
+- [x] Full checks, fresh review, PR/CI, deployment and authenticated real-data verification. Upgrade collector separately; never claim a server deploy upgrades devices.
+
+Delivery receipts: see [status](../../status.md#usage-composition-increment). Release and owner-Mac/production smoke are verified; historical enrichment and real quota attribution coverage are not certified complete.
