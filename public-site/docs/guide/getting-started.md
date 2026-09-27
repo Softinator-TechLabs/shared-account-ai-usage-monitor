@@ -2,9 +2,9 @@
 
 Shared Account AI Usage Monitor has two pieces: a self-hosted team workspace and a collector on each employee device. It observes native coding-client sessions; it does not replace Codex, Claude Code or Antigravity logins, and it does not proxy inference through an API.
 
-## 1. Open a workspace
+## 1. Host or join a workspace
 
-If your team already has a workspace, ask its owner for your login. The Softinator team workspace is [usage.softinator.org](https://usage.softinator.org/); other organizations should [self-host](/guide/self-host) their own. The public site does not contain team telemetry.
+For a new team, [self-host the server and database](/guide/self-host) under a domain you control. The owner creates their password with the one-use setup link, adds people in **People**, and shares each person's setup link privately. If your team already hosts a workspace, ask its owner for your workspace URL and invitation. This public site does not contain team telemetry or offer a shared hosted tenant.
 
 ## 2. Install your device collector
 

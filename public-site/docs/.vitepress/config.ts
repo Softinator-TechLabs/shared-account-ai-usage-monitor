@@ -18,9 +18,9 @@ export default defineConfig({
     siteTitle: "Shared AI Usage",
     nav: [
       { text: "Website", link: "https://usage.softinator.ai/" },
-      { text: "Get started", link: "/guide/getting-started" },
+      { text: "Install", link: "/guide/getting-started" },
+      { text: "Self-host", link: "/guide/self-host" },
       { text: "How numbers work", link: "/guide/usage-and-limits" },
-      { text: "Workspace ↗", link: "https://usage.softinator.org/" },
     ],
     sidebar: [
       {

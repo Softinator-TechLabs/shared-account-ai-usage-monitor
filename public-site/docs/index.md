@@ -6,10 +6,13 @@ hero:
   tagline: Connect local AI sessions, projects and account readings in a team workspace that shows its evidence and its gaps.
   actions:
     - theme: brand
-      text: Get started
+      text: Self-host the workspace
+      link: /guide/self-host
+    - theme: alt
+      text: Installation guide
       link: /guide/getting-started
     - theme: alt
-      text: Download for Mac
+      text: Mac releases
       link: https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/tag/v0.7.0-preview
     - theme: alt
       text: Open source
@@ -25,7 +28,8 @@ features:
 
 ## Choose a path
 
-- **Employee:** [Connect your device](/guide/connect-device), then open the workspace to see the activity your device has captured.
+- **New team:** [Deploy your own workspace](/guide/self-host), create the first owner, then [invite people and connect devices](/guide/getting-started).
+- **Employee:** [Connect your device](/guide/connect-device) to the URL and invitation provided by your team owner.
 - **Owner or PM:** [Understand usage and limits](/guide/usage-and-limits) before interpreting account or project charts.
 - **Maintainer:** [Self-host the service](/guide/self-host), review [privacy controls](/guide/privacy-and-policy) and see [current support](/guide/current-support).
 
