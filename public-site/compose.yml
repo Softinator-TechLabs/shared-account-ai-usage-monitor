@@ -1,0 +1,8 @@
+services:
+  website:
+    build:
+      context: ..
+      dockerfile: public-site/Dockerfile
+    restart: unless-stopped
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]

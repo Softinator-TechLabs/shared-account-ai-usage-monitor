@@ -1,5 +1,7 @@
 # Product navigation
 
+- [Public website and docs](https://usage.softinator.ai/) — independent static product site; source in [`public-site/`](../public-site/).
+
 [Original requirements and missing implementation audit](requirements-audit.md) — includes full-history failure, per-device viewer access and employee quota attribution gaps.
 
 - [Start and demo](../README.md)

@@ -1,0 +1,49 @@
+:root {
+  --vp-c-brand-1: #6753c7;
+  --vp-c-brand-2: #5946b4;
+  --vp-c-brand-3: #4e3ca5;
+  --vp-c-brand-soft: #e9dfff;
+  --vp-c-bg: #f7f6f1;
+  --vp-c-bg-soft: #f0eee9;
+  --vp-c-bg-alt: #eae9e4;
+  --vp-c-text-1: #171b20;
+  --vp-font-family-base: Geist, Inter, system-ui, sans-serif;
+}
+.dark {
+  --vp-c-brand-1: #d5f86a;
+  --vp-c-brand-2: #d1ee81;
+  --vp-c-brand-3: #b8d469;
+  --vp-c-brand-soft: #d5f86a20;
+  --vp-c-bg: #171b20;
+  --vp-c-bg-soft: #22272d;
+  --vp-c-bg-alt: #22272d;
+  --vp-c-text-1: #f7f6f1;
+}
+@font-face {
+  font-family: Geist;
+  src: url("../../public/fonts/geist.woff2") format("woff2");
+  font-display: swap;
+}
+.VPNavBarTitle .title {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+}
+.VPHero .name {
+  letter-spacing: -0.06em;
+}
+.VPButton.brand {
+  background: #d5f86a;
+  color: #171b20;
+  border-color: #d5f86a;
+}
+.VPButton.brand:hover {
+  background: #bfe45b;
+  border-color: #bfe45b;
+}
+.VPDoc h1,
+.VPDoc h2 {
+  letter-spacing: -0.04em;
+}
+.VPFooter {
+  border-top: 1px solid var(--vp-c-divider);
+}

@@ -32,6 +32,7 @@ jobs:
       - run: python3 -m unittest discover -s tests -v
       - run: npm ci
       - run: npm run test:unit
+      - run: npm run build:public-site
       - run: npx playwright install --with-deps chromium
       - name: Start isolated synthetic server
         run: |
@@ -45,6 +46,16 @@ jobs:
           exit 1
       - run: npm run test:ui
       - run: docker build -f deploy/Dockerfile -t shared-account-monitor:test .
+      - run: docker build -f public-site/Dockerfile -t shared-account-public-site:test .
+      - name: Test standalone public website and docs
+        run: |
+          docker run -d --name shared-account-public-site-test -p 127.0.0.1:18093:8080 shared-account-public-site:test
+          for attempt in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:18093/healthz; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:18093/docs/guide/getting-started >/dev/null
+          npm run test:public-site
   companion:
     runs-on: ubuntu-latest
     strategy:

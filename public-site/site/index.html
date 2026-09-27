@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#121519" />
+    <meta
+      name="description"
+      content="Understand the people, projects and prompts behind your team's AI coding subscriptions. Open source and self-hostable."
+    />
+    <link rel="icon" type="image/svg+xml" href="/mark.svg" />
+    <link rel="stylesheet" href="/site.css" />
+    <title>Shared Account AI Usage Monitor — the work behind the usage</title>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <header class="site-header wrap">
+      <a
+        class="brand"
+        href="/"
+        aria-label="Shared Account AI Usage Monitor home"
+      >
+        <img src="/mark.svg" width="38" height="38" alt="" />
+        <span
+          >shared<span class="brand-dot">.</span
+          ><small>AI usage monitor</small></span
+        >
+      </a>
+      <nav aria-label="Main navigation">
+        <a href="#how-it-works">How it works</a>
+        <a href="/docs/">Docs</a>
+        <a
+          href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor"
+          >GitHub <span aria-hidden="true">↗</span></a
+        >
+      </nav>
+      <a class="header-action" href="https://usage.softinator.org/"
+        >Open workspace <span aria-hidden="true">↗</span></a
+      >
+    </header>
+
+    <main id="main">
+      <section class="hero wrap" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <h1 id="hero-title">Shared accounts.<br /><em>Clearer work.</em></h1>
+          <p class="hero-lede">
+            Know which AI sessions happened, where the work went, and what your
+            subscription limits actually show.
+          </p>
+          <div class="hero-actions">
+            <a
+              class="button button-lime"
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.7.0-preview/AI-Usage-Monitor-mac-arm64.dmg"
+              >Download for Mac <span aria-hidden="true">↗</span></a
+            >
+            <a class="text-link" href="/docs/guide/getting-started"
+              >Get started <span aria-hidden="true">↗</span></a
+            >
+          </div>
+          <p class="hero-note">
+            Apple silicon ·
+            <a
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.7.0-preview/AI-Usage-Monitor-mac-amd64.dmg"
+              >Intel Mac</a
+            >
+            ·
+            <a
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/tag/v0.7.0-preview"
+              >All releases</a
+            >
+          </p>
+        </div>
+        <div
+          class="hero-visual"
+          role="img"
+          aria-label="Illustrative signal board connecting an AI account, sessions and projects"
+        >
+          <div class="board-orbit orbit-one"></div>
+          <div class="board-orbit orbit-two"></div>
+          <div class="board">
+            <div class="board-head">
+              <span><i></i><i></i><i></i></span
+              ><strong>WORKSPACE / SIGNAL BOARD</strong
+              ><span class="board-head-right">ILLUSTRATIVE DATA ↗</span>
+            </div>
+            <div class="board-inner">
+              <div class="board-kicker">
+                <span>01 — ACCOUNT WINDOW</span><span>OBSERVED · 09:41</span>
+              </div>
+              <div class="quota-row">
+                <div>
+                  <span class="quota-label">CODEX / SHARED PRO</span
+                  ><strong>37<span>%</span></strong
+                  ><small>Account-wide usage observed</small>
+                </div>
+                <div class="quota-ring">
+                  <div><b>63%</b><small>left</small></div>
+                </div>
+              </div>
+              <div class="board-divider"></div>
+              <div class="board-kicker">
+                <span>02 — RECORDED WORK</span><span>24H</span>
+              </div>
+              <div class="lane">
+                <span class="lane-name"
+                  ><b class="lane-dot orange"></b> typesetting3</span
+                ><span class="lane-track"
+                  ><i style="--fill: 74%; --bar: #d9b0ff"></i></span
+                ><b>18</b>
+              </div>
+              <div class="lane">
+                <span class="lane-name"
+                  ><b class="lane-dot lime"></b> feedbacks</span
+                ><span class="lane-track"
+                  ><i style="--fill: 48%; --bar: #d5f86a"></i></span
+                ><b>12</b>
+              </div>
+              <div class="lane">
+                <span class="lane-name"
+                  ><b class="lane-dot blue"></b> researchcrm</span
+                ><span class="lane-track"
+                  ><i style="--fill: 23%; --bar: #8dbdff"></i></span
+                ><b>05</b>
+              </div>
+              <div class="board-bottom">
+                <span><b class="live-pulse"></b> Local sessions connected</span
+                ><span>PROJECT SHARE ≠ QUOTA SHARE</span>
+              </div>
+            </div>
+          </div>
+          <div class="float-card float-people">
+            <span class="float-label">PEOPLE / DEVICE</span
+            ><strong>Work, with a source.</strong
+            ><small>Person · computer · repository</small>
+            <div class="avatars" aria-hidden="true">
+              <i>SD</i><i>AK</i><i>RS</i>
+            </div>
+          </div>
+          <div class="float-card float-model">
+            <span class="float-label">MODEL / SESSION</span
+            ><strong>Ask better questions.</strong
+            ><small>Prompt → model → outcome</small>
+            <div class="model-line">
+              <span></span><span></span><span></span><span></span><span></span
+              ><span></span><span></span><span></span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="signal-strip" aria-label="Supported workflow concepts">
+        <div class="strip-flow">
+          <span>CODEX</span><b>✳</b><span>CLAUDE CODE</span><b>✳</b
+          ><span>ANTIGRAVITY</span><b>✳</b><span>PEOPLE</span><b>✳</b
+          ><span>PROJECTS</span><b>✳</b><span>ACCOUNTS</span><b>✳</b
+          ><span>CODEX</span><b>✳</b><span>CLAUDE CODE</span>
+        </div>
+      </div>
+
+      <section
+        class="questions wrap"
+        id="how-it-works"
+        aria-labelledby="questions-title"
+      >
+        <div class="section-heading">
+          <p class="eyebrow dark">WHAT CHANGED TODAY?</p>
+          <h2 id="questions-title">
+            A dashboard that knows<br /><em>what to ask.</em>
+          </h2>
+          <p>
+            The raw transcript is only one layer. Put people, repositories and
+            accounts beside it.
+          </p>
+        </div>
+        <div class="question-grid">
+          <article class="question-card card-lilac">
+            <span class="card-index">01 / SESSIONS</span>
+            <div class="card-art prompt-art" aria-hidden="true">
+              <div class="prompt-bubble bubble-a">
+                Ship the smaller fix first.
+              </div>
+              <div class="prompt-bubble bubble-b">Which branch changed?</div>
+              <div class="prompt-cursor"></div>
+            </div>
+            <h3>See the conversation.</h3>
+            <p>
+              Read the human prompt, model, repo and branch together. Review the
+              work behind a session.
+            </p>
+          </article>
+          <article class="question-card card-lime">
+            <span class="card-index">02 / ACCOUNTS</span>
+            <div class="card-art gauge-art" aria-hidden="true">
+              <div class="gauge-circle"><span>?</span></div>
+              <div class="gauge-tags">
+                <span>Observed</span><span>Estimated</span><span>Unknown</span>
+              </div>
+            </div>
+            <h3>Respect the unknown.</h3>
+            <p>
+              Account-wide limits are measured as observed. Project allocation
+              appears only when evidence supports it.
+            </p>
+          </article>
+          <article class="question-card card-peach">
+            <span class="card-index">03 / COACHING</span>
+            <div class="card-art review-art" aria-hidden="true">
+              <span>Prompt clarity</span>
+              <div class="review-stars">★ ★ ★ ★ ☆</div>
+              <div class="review-line"></div>
+              <span>Outcome quality</span>
+              <div class="review-stars dark-stars">★ ★ ★ ☆ ☆</div>
+            </div>
+            <h3>Discuss, don’t guess.</h3>
+            <p>
+              Use comments and separate prompt/work ratings for coaching. Keep
+              employment decisions with humans.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <section class="truth" aria-labelledby="truth-title">
+        <div class="wrap truth-grid">
+          <div>
+            <p class="eyebrow">EVIDENCE FIRST</p>
+            <h2 id="truth-title">
+              The percentage<br />isn’t the <em>whole story.</em>
+            </h2>
+          </div>
+          <div class="truth-copy">
+            <p>
+              Subscription quotas belong to an account. Sessions belong to
+              devices and projects. We show the link only when the timeline and
+              captured usage support it—and label the gaps when they don’t.
+            </p>
+            <a class="text-link light" href="/docs/guide/usage-and-limits"
+              >How the numbers work <span aria-hidden="true">↗</span></a
+            >
+          </div>
+        </div>
+        <div class="truth-trace wrap" aria-hidden="true">
+          <span>ACCOUNT READING</span><i></i><span>CAPTURED SESSION</span><i></i
+          ><span>PROJECT CONTEXT</span><i></i><b>CONFIDENCE</b>
+        </div>
+      </section>
+
+      <section class="start wrap" id="download" aria-labelledby="start-title">
+        <div class="section-heading">
+          <p class="eyebrow dark">YOUR WORKSPACE, YOUR DATA</p>
+          <h2 id="start-title">
+            Start local.<br /><em>See the whole team.</em>
+          </h2>
+          <p>
+            Install a collector on each device, connect it to your self-hosted
+            workspace, then choose what the team can see.
+          </p>
+        </div>
+        <div class="steps">
+          <div>
+            <b>01</b>
+            <h3>Install</h3>
+            <p>
+              Mac menu app today. Windows and Linux collector setup is
+              documented in source.
+            </p>
+          </div>
+          <div>
+            <b>02</b>
+            <h3>Connect</h3>
+            <p>
+              Create a device connection in your workspace and acknowledge its
+              collection policy.
+            </p>
+          </div>
+          <div>
+            <b>03</b>
+            <h3>Explore</h3>
+            <p>
+              Review sessions, project activity and account observations with
+              their coverage.
+            </p>
+          </div>
+        </div>
+        <div class="download-panel">
+          <div>
+            <span class="download-symbol">↘</span>
+            <h3>Ready to see the signal?</h3>
+            <p>
+              Open-source preview. Self-hosted workspace. No API gateway needed
+              for native subscriptions.
+            </p>
+          </div>
+          <div class="download-actions">
+            <a
+              class="button button-ink"
+              href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/releases/download/v0.7.0-preview/AI-Usage-Monitor-mac-arm64.dmg"
+              >Download Mac app ↗</a
+            ><a href="/docs/guide/getting-started">Read the install guide →</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer wrap">
+      <a class="brand footer-brand" href="/"
+        ><img src="/mark.svg" width="31" height="31" alt="" /><span
+          >shared<span class="brand-dot">.</span
+          ><small>AI usage monitor</small></span
+        ></a
+      >
+      <p>
+        By <a href="https://softinator.ai/">Softinator TechLabs</a>. Built in
+        the open.
+      </p>
+      <nav aria-label="Footer">
+        <a href="/docs/">Docs</a
+        ><a
+          href="https://github.com/Softinator-TechLabs/shared-account-ai-usage-monitor"
+          >GitHub</a
+        ><a href="https://usage.softinator.org/">Workspace</a
+        ><a href="/docs/guide/privacy-and-policy">Privacy</a>
+      </nav>
+    </footer>
+  </body>
+</html>
