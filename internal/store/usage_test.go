@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	c "github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/internal/contracts"
 	"testing"
 	"time"
@@ -176,5 +178,105 @@ func TestUsageRollingHoursExactBoundsAndBuckets(t *testing.T) {
 		if _, e := s.Analytics(ctx, owner(), f, now); !errors.Is(e, c.ErrInvalid) {
 			t.Fatal("invalid period accepted", f, e)
 		}
+	}
+}
+
+// Old missing-usage history must not contaminate unrelated observed intervals;
+// incomplete/conflicting source bounds must never hide a possible denominator.
+func TestUsageQuotaBlockersRespectAllSourceTimeBounds(t *testing.T) {
+	for _, tc := range []struct {
+		name, kind string
+		available  bool
+	}{
+		{"old_unavailable", "unavailable", true},
+		{"old_undated", "undated", true},
+		{"old_conflicts", "conflict", true},
+		{"overlapping_unavailable", "overlap", false},
+		{"missing_end", "missing_end", false},
+		{"invalid_end", "invalid_end", false},
+		{"inverted_bounds", "inverted", false},
+		{"dated_point_outside_old_bounds", "outside_point", false},
+		{"activity_outside_old_bounds", "outside_activity", false},
+		{"older_copy_overlaps", "conflict_overlap", false},
+		{"older_copy_unknown", "conflict_unknown", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s := testStore(t)
+			ctx := context.Background()
+			obs, points, from, to := quotaEstimateFixture()
+			for i, o := range obs {
+				o.EventID = fmt.Sprintf("event-%d", i)
+				o.PolicyVersion = 1
+				if err := s.ObserveQuota(ctx, c.Principal{Workspace: "team", Person: "alice", Device: o.Device}, o.QuotaObservation); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for i, p := range points {
+				v := c.UsageCapture{SourceRef: fmt.Sprintf("valid-%d", i), Revision: "1", PolicyVersion: 1, Client: "codex", Project: p.Project, ObservedAt: time.Now(), Coverage: "reported", Points: []c.UsagePoint{{Timestamp: p.At.Format(time.RFC3339), Model: "gpt-6-sol", InputTokens: amount(int64(*p.Weight * 1000000)), OutputTokens: amount(0), CacheReadTokens: amount(0), CacheWriteTokens: amount(0)}}}
+				if err := s.ObserveUsage(ctx, c.Principal{Workspace: "team", Person: p.Person, Device: p.Device}, v); err != nil {
+					t.Fatal(err)
+				}
+			}
+			oldStart, oldEnd := from.Add(-48*time.Hour).Format(time.RFC3339), from.Add(-47*time.Hour).Format(time.RFC3339)
+			// Decode the wire contract to exercise compatibility with pre-ended_at captures.
+			capture := func(start, end string) c.UsageCapture {
+				wire, _ := json.Marshal(map[string]any{"source_ref": "missing-history", "revision": "1", "policy_version": 1, "client": "codex", "project": "excluded-project", "observed_at": time.Now(), "started_at": start, "ended_at": end, "coverage": "unavailable"})
+				var v c.UsageCapture
+				if err := json.Unmarshal(wire, &v); err != nil {
+					t.Fatal(err)
+				}
+				return v
+			}
+			v := capture(oldStart, oldEnd)
+			switch tc.kind {
+			case "undated":
+				v.Coverage = "reported"
+				v.Points = []c.UsagePoint{{Timestamp: "invalid", Model: "gpt-6-sol"}}
+			case "overlap":
+				v = capture(from.Format(time.RFC3339), to.Format(time.RFC3339))
+			case "missing_end":
+				v = capture(oldStart, "")
+			case "invalid_end":
+				v = capture(oldStart, "invalid")
+			case "inverted":
+				v = capture(oldEnd, oldStart)
+			case "outside_point":
+				v.Points = []c.UsagePoint{{Timestamp: from.Add(time.Minute).Format(time.RFC3339)}}
+			case "outside_activity":
+				v.Activity = []c.UsageActivity{{Timestamp: from.Add(time.Minute).Format(time.RFC3339)}}
+			case "conflict_overlap":
+				v = capture(from.Format(time.RFC3339), to.Format(time.RFC3339))
+			case "conflict_unknown":
+				v = capture("", "")
+			}
+			principal := alice()
+			if err := s.ObserveUsage(ctx, principal, v); err != nil {
+				t.Fatal(err)
+			}
+			if tc.kind == "conflict" || tc.kind == "conflict_overlap" || tc.kind == "conflict_unknown" {
+				v = capture(oldStart, oldEnd)
+				v.Client = "claude"
+				v.ObservedAt = v.ObservedAt.Add(time.Second)
+				principal.Device = "latest-copy"
+				if err := s.ObserveUsage(ctx, principal, v); err != nil {
+					t.Fatal(err)
+				}
+			}
+			d, err := s.Analytics(ctx, owner(), UsageFilter{Hours: 1, Person: "alice", Project: "alpha"}, to.Add(time.Minute))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(d.QuotaEstimates) != 1 {
+				t.Fatalf("missing interval: %+v", d.QuotaEstimates)
+			}
+			got := d.QuotaEstimates[0]
+			if tc.available {
+				if got.Status != "estimated" || got.EstimatedPercentagePoints == nil || *got.EstimatedPercentagePoints != 3 {
+					t.Fatalf("irrelevant old source blocked intact 3/4 denominator share: %+v", got)
+				}
+			} else if got.Status != "unavailable" || got.EstimatedPercentagePoints != nil || len(got.Allocations) != 0 {
+				t.Fatalf("uncertain source excluded from denominator: %+v", got)
+			}
+		})
 	}
 }

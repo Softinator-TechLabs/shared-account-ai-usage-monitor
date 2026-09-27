@@ -15,7 +15,7 @@ func (s *Store) ObserveUsage(ctx context.Context, p c.Principal, v c.UsageCaptur
 	if p.Workspace == "" || p.Person == "" || p.Device == "" {
 		return c.ErrForbidden
 	}
-	if v.SourceRef == "" || len(v.SourceRef) > 512 || v.Revision == "" || len(v.Revision) > 256 || len(v.Project) > 1024 || len(v.Branch) > 1024 || v.Client == "" || len(v.Client) > 64 || v.Messages < 0 || v.Prompts < 0 || v.ObservedAt.IsZero() || v.ObservedAt.After(time.Now().Add(time.Minute)) || len(v.Points) > 100000 || (v.Coverage != "reported" && v.Coverage != "unavailable") {
+	if v.SourceRef == "" || len(v.SourceRef) > 512 || v.Revision == "" || len(v.Revision) > 256 || len(v.Project) > 1024 || len(v.Branch) > 1024 || len(v.StartedAt) > 64 || len(v.EndedAt) > 64 || v.Client == "" || len(v.Client) > 64 || v.Messages < 0 || v.Prompts < 0 || v.ObservedAt.IsZero() || v.ObservedAt.After(time.Now().Add(time.Minute)) || len(v.Points) > 100000 || (v.Coverage != "reported" && v.Coverage != "unavailable") {
 		return c.ErrInvalid
 	}
 	for _, pt := range v.Points {
@@ -236,17 +236,19 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 		}
 	}
 	// Conflicts are computed before person filtering: copies cannot silently become two employees' work.
-	rows, e := s.DB.Query(ctx, `SELECT DISTINCT ON(u.source_ref) u.body,u.person,u.device,(SELECT count(DISTINCT device) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT person) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT (body - 'observed_at' - 'revision' - 'policy_version')) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref) FROM tm_usage u WHERE u.workspace=$1 AND ($2 OR u.person=$3) ORDER BY u.source_ref,u.observed_at DESC,u.person,u.device`, p.Workspace, all, p.Person)
+	rows, e := s.DB.Query(ctx, `SELECT DISTINCT ON(u.source_ref) u.body,u.person,u.device,(SELECT count(DISTINCT device) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT person) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),(SELECT count(DISTINCT (body - 'observed_at' - 'revision' - 'policy_version')) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref),
+(SELECT jsonb_agg(jsonb_build_object('started_at',x.body->'started_at','ended_at',x.body->'ended_at','timestamps',jsonb_path_query_array(x.body,'$.points[*].timestamp') || jsonb_path_query_array(x.body,'$.activity[*].timestamp'))) FROM tm_usage x WHERE x.workspace=u.workspace AND x.source_ref=u.source_ref)
+FROM tm_usage u WHERE u.workspace=$1 AND ($2 OR u.person=$3) ORDER BY u.source_ref,u.observed_at DESC,u.person,u.device`, p.Workspace, all, p.Person)
 	if e != nil {
 		return d, e
 	}
 	defer rows.Close()
 	for rows.Next() {
-		var b []byte
+		var b, sourceBounds []byte
 		var person, device string
 		var owners, contents, copies int
 		var v c.UsageCapture
-		if e = rows.Scan(&b, &person, &device, &copies, &owners, &contents); e != nil {
+		if e = rows.Scan(&b, &person, &device, &copies, &owners, &contents, &sourceBounds); e != nil {
 			return d, e
 		}
 		if e = json.Unmarshal(b, &v); e != nil {
@@ -256,16 +258,30 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 			v.Project = "Unknown project"
 		}
 		// Account allocation denominators are built before presentation filters.
+		blocker := usageBounds(v).quotaBlocker(v.Client)
+		blockedSource := contents > 1
 		if contents > 1 {
-			quotaPoints = append(quotaPoints, QuotaUsagePoint{Client: "codex"})
+			var bounds []usageSourceBounds
+			if e = json.Unmarshal(sourceBounds, &bounds); e != nil {
+				return d, e
+			}
+			for _, source := range bounds {
+				// Every conflicting copy can contain missing Codex usage, including
+				// a copy hidden by a newer non-Codex source label.
+				quotaPoints = append(quotaPoints, source.quotaBlocker("codex"))
+			}
 		}
-		if v.Coverage != "reported" {
-			quotaPoints = append(quotaPoints, QuotaUsagePoint{Client: v.Client})
+		if v.Coverage != "reported" && !blockedSource {
+			quotaPoints = append(quotaPoints, blocker)
+			blockedSource = true
 		}
 		{
 			for _, pt := range v.Points {
 				if _, err := time.Parse(time.RFC3339Nano, pt.Timestamp); err != nil {
-					quotaPoints = append(quotaPoints, QuotaUsagePoint{Client: v.Client})
+					if !blockedSource {
+						quotaPoints = append(quotaPoints, blocker)
+						blockedSource = true
+					}
 					continue
 				}
 				if inUsageWindow(pt.Timestamp, windowStart, windowEnd) {
@@ -385,4 +401,48 @@ func (s *Store) Analytics(ctx context.Context, p c.Principal, f UsageFilter, now
 	d.Models = groups(models)
 	e = s.Audit(ctx, p, "analytics.read", "aggregate")
 	return d, e
+}
+
+// usageSourceBounds describes the possible time range of incomplete source
+// evidence. A capture time is deliberately not a session end time.
+type usageSourceBounds struct {
+	StartedAt  string   `json:"started_at"`
+	EndedAt    string   `json:"ended_at"`
+	Timestamps []string `json:"timestamps"`
+}
+
+func usageBounds(v c.UsageCapture) usageSourceBounds {
+	b := usageSourceBounds{StartedAt: v.StartedAt, EndedAt: v.EndedAt}
+	for _, p := range v.Points {
+		b.Timestamps = append(b.Timestamps, p.Timestamp)
+	}
+	for _, a := range v.Activity {
+		b.Timestamps = append(b.Timestamps, a.Timestamp)
+	}
+	return b
+}
+
+func (b usageSourceBounds) quotaBlocker(client string) QuotaUsagePoint {
+	p := QuotaUsagePoint{Client: client}
+	start, startErr := time.Parse(time.RFC3339Nano, b.StartedAt)
+	end, endErr := time.Parse(time.RFC3339Nano, b.EndedAt)
+	if startErr != nil || endErr != nil || start.IsZero() || end.IsZero() || end.Before(start) {
+		return p
+	}
+	// Contradictory dated evidence expands bounds; it never narrows the unknown
+	// contribution to the newest copy or drops evidence outside session metadata.
+	for _, raw := range b.Timestamps {
+		at, err := time.Parse(time.RFC3339Nano, raw)
+		if err != nil {
+			continue
+		}
+		if at.Before(start) {
+			start = at
+		}
+		if at.After(end) {
+			end = at
+		}
+	}
+	p.RangeStart, p.RangeEnd = start, end
+	return p
 }

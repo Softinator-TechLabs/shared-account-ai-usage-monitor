@@ -63,10 +63,12 @@ func (cl *Client) QuotaCycle(ctx context.Context, q *spool.Queue, version int, p
 			online = false
 		}
 	}
+	readFailed := false
 	for _, profile := range profiles {
 		v := c.QuotaObservation{EventID: quotaEventID(), PolicyVersion: version, Provider: "codex", Profile: profile.Label}
 		v.Snapshot, e = quota.ReadCodexSnapshot(ctx, profile.Executable, profile.Home)
 		if e != nil {
+			readFailed = true
 			v.Snapshot = quota.Snapshot{ObservedAt: time.Now().UTC()}
 			v.Error = "unavailable"
 		}
@@ -81,7 +83,13 @@ func (cl *Client) QuotaCycle(ctx context.Context, q *spool.Queue, version int, p
 	if !online {
 		return ErrUnavailable
 	}
-	return deliver()
+	if e = deliver(); e != nil {
+		return e
+	}
+	if readFailed {
+		return errors.New("quota read unavailable; error observations delivered")
+	}
+	return nil
 }
 
 func quotaEventID() string {

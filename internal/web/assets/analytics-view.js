@@ -394,10 +394,10 @@ export async function renderAnalyticsPage(
         totals.append(item);
       }
       dataRoot.append(totals);
-      if (data.composition)
-        dataRoot.append(renderComposition(data.composition));
       if (data.quota_estimates?.length)
         dataRoot.append(renderQuotaEstimates(data.quota_estimates));
+      if (data.composition)
+        dataRoot.append(renderComposition(data.composition));
       dataRoot.append(dailyChart(data, selection.category));
       if (kind !== "project")
         dataRoot.append(

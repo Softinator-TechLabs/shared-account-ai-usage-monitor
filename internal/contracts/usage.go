@@ -28,6 +28,7 @@ type UsageCapture struct {
 	Project          string          `json:"project"`
 	Branch           string          `json:"branch"`
 	StartedAt        string          `json:"started_at"`
+	EndedAt          string          `json:"ended_at,omitempty"`
 	ObservedAt       time.Time       `json:"observed_at"`
 	Messages         int             `json:"messages"`
 	Prompts          int             `json:"prompts"`

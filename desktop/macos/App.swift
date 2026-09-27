@@ -16,6 +16,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   let choose = NSButton(title: "Choose connection file…", target: nil, action: nil)
   let install = NSButton(title: "Agree & connect", target: nil, action: nil)
   let status = NSTextField(wrappingLabelWithString: "")
+  let appVersion = NSTextField(labelWithString: "")
+  let serviceDetails = NSTextField(wrappingLabelWithString: "Checking background services…")
+  let syncDetails = NSTextField(wrappingLabelWithString: "")
+  let syncToggle = NSButton(title: "Checking…", target: nil, action: nil)
+  let refresh = NSButton(title: "Refresh status", target: nil, action: nil)
+  var statusTimer: Timer?
+  var refreshing = false
+  var nextSyncAction = ""
+  var configured = false
   let spinner = NSProgressIndicator()
   let controls = NSStackView()
   var pendingPath: String?
@@ -32,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.regular)
     window = NSWindow(
-      contentRect: NSRect(x: 0, y: 0, width: 610, height: 620),
+      contentRect: NSRect(x: 0, y: 0, width: 610, height: 650),
       styleMask: [.titled, .closable, .miniaturizable], backing: .buffered, defer: false)
     window.title = "Shared Account AI Usage Monitor"
     window.isReleasedWhenClosed = false
@@ -52,6 +61,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     heading.font = .systemFont(ofSize: 28, weight: .semibold)
     detail.textColor = .secondaryLabelColor
     detail.font = .systemFont(ofSize: 14)
+    let release = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+    let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
+    appVersion.stringValue = "Version \(release) (build \(build))"
+    appVersion.font = .systemFont(ofSize: 12)
+    appVersion.textColor = .secondaryLabelColor
+    serviceDetails.font = .systemFont(ofSize: 13)
+    syncDetails.font = .systemFont(ofSize: 13)
+    serviceDetails.isHidden = true
+    syncDetails.isHidden = true
+    syncToggle.target = self
+    syncToggle.action = #selector(toggleSync)
+    syncToggle.isEnabled = false
+    refresh.target = self
+    refresh.action = #selector(refreshStatus)
     address.placeholderString = "https://your-workspace.example.com"
     address.font = .systemFont(ofSize: 14)
     policy.font = .systemFont(ofSize: 14)
@@ -81,11 +104,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       viewerControls.addArrangedSubview(NSButton(title: title, target: self, action: action))
     }
     for v in [
-      heading, detail, choose, person, address, policy, consent, controls, viewerControls, status,
+      heading, appVersion, detail, choose, person, address, policy, consent, serviceDetails, syncDetails, controls, viewerControls, status,
     ] {
       stack.addArrangedSubview(v)
     }
-    for v in [detail, person, address, policy, status] {
+    for v in [detail, person, address, policy, serviceDetails, syncDetails, status] {
       v.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
     status.font = .systemFont(ofSize: 13)
@@ -211,6 +234,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     choose.isEnabled = false
     consent.isEnabled = false
     install.isEnabled = false
+    syncToggle.isEnabled = false
+    refresh.isEnabled = false
     spinner.startAnimation(nil)
     let task = Process()
     task.executableURL = Bundle.main.url(forResource: "team-setup", withExtension: nil)
@@ -236,6 +261,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.spinner.stopAnimation(nil)
         self.updateButton()
         completion(task.terminationStatus == 0)
+        self.refresh.isEnabled = true
+        if self.configured { self.refreshStatus() }
       }
     }
     process = task
@@ -246,6 +273,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       choose.isEnabled = true
       consent.isEnabled = true
       updateButton()
+      refresh.isEnabled = true
+      if configured { refreshStatus() }
     }
   }
   func existing() {
@@ -254,23 +283,118 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       let server = cfg["server"] as? String
     else { return }
     workspace = server
-    heading.stringValue = "Your Mac is set up"
+    configured = true
+    heading.stringValue = "Checking sync status…"
     detail.stringValue =
-      "Sync runs in the background. Check the workspace for its latest connection and imported sessions."
+      "You can close or quit this app. When enabled, background services continue while you’re logged in and your Mac is awake. Use Pause sync to stop them."
     for v in [choose, person, address, policy, consent, install] { v.isHidden = true }
     if controls.arrangedSubviews.count == 2 {
-      for (title, action) in [
-        ("Open workspace", #selector(openWorkspace)), ("Pause sync", #selector(pauseSync)),
-        ("Resume sync", #selector(resumeSync)),
-      ] {
-        let b = NSButton(title: title, target: self, action: action)
-        controls.addArrangedSubview(b)
+      controls.addArrangedSubview(NSButton(title: "Open workspace", target: self, action: #selector(openWorkspace)))
+      controls.addArrangedSubview(syncToggle)
+      controls.addArrangedSubview(refresh)
+    }
+    serviceDetails.isHidden = false
+    syncDetails.isHidden = false
+    viewerControls.isHidden = false
+    window.setContentSize(NSSize(width: 610, height: 650))
+    refreshStatus()
+    if statusTimer == nil {
+      statusTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+        self?.refreshStatus()
       }
     }
-    person.stringValue = server
-    viewerControls.isHidden = false
-    window.setContentSize(NSSize(width: 610, height: 430))
   }
+  @objc func refreshStatus() {
+    guard configured, !running, !refreshing else { return }
+    refreshing = true
+    refresh.isEnabled = false
+    DispatchQueue.global(qos: .utility).async {
+      let task = Process()
+      task.executableURL = Bundle.main.url(forResource: "team-setup", withExtension: nil)
+      task.arguments = ["status", "--json"]
+      let output = Pipe()
+      task.standardOutput = output
+      task.standardError = FileHandle.nullDevice
+      var snapshot: [String: Any]?
+      do {
+        try task.run()
+        let data = output.fileHandleForReading.readDataToEndOfFile()
+        task.waitUntilExit()
+        if task.terminationStatus == 0 {
+          snapshot = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        }
+      } catch {}
+      let result = snapshot
+      DispatchQueue.main.async {
+        self.refreshing = false
+        self.refresh.isEnabled = !self.running
+        guard !self.running else { return }
+        guard let result = result else {
+          self.heading.stringValue = "Sync status unavailable"
+          self.serviceDetails.stringValue = "Could not inspect background services. Refresh to retry."
+          self.syncDetails.stringValue = "Successful sync times are unavailable."
+          self.syncToggle.isEnabled = false
+          return
+        }
+        self.showStatus(result)
+      }
+    }
+  }
+  func showStatus(_ snapshot: [String: Any]) {
+    let state = snapshot["state"] as? String ?? "unknown"
+    let titles = ["running": "Background services are running", "paused": "Sync is paused",
+                  "off": "Background sync is off", "needs_attention": "Sync needs attention",
+                  "not_configured": "This Mac is not connected", "unknown": "Sync status unavailable"]
+    heading.stringValue = titles[state] ?? "Sync status unavailable"
+    heading.font = .systemFont(ofSize: 25, weight: .semibold)
+    let labels = ["agentsview": "Local history", "analytics": "Usage analytics", "quota": "Account quota", "companion": "Session uploads"]
+    let states = ["running": "Running", "loaded": "Loaded · waiting", "paused": "Paused", "off": "Stopped",
+                  "not_installed": "Not installed", "error": "Exited with an error", "unknown": "Unavailable"]
+    let services = snapshot["services"] as? [[String: Any]] ?? []
+    serviceDetails.stringValue = services.map { service in
+      let name = service["name"] as? String ?? ""
+      let current = service["state"] as? String ?? "unknown"
+      return "\(labels[name] ?? name): \(states[current] ?? "Unavailable")"
+    }.joined(separator: "\n")
+    syncDetails.stringValue = [syncSummary("Analytics", snapshot["analytics"]), syncSummary("Quota", snapshot["quota"])].joined(separator: "\n\n")
+    if state == "running", [snapshot["analytics"], snapshot["quota"]].contains(where: { ($0 as? [String: Any])?["state"] as? String == "error" }) {
+      heading.stringValue = "Sync needs attention"
+    }
+    nextSyncAction = snapshot["action"] as? String ?? ""
+    syncToggle.title = nextSyncAction == "pause" ? "Pause sync" : "Resume sync"
+    syncToggle.isEnabled = !running && ["pause", "resume"].contains(nextSyncAction)
+  }
+  func syncSummary(_ name: String, _ value: Any?) -> String {
+    guard let record = value as? [String: Any] else { return "\(name): sync evidence unavailable" }
+    let state = record["state"] as? String ?? "unknown"
+    if state == "unknown" { return "\(name): sync evidence unavailable" }
+    var text = "\(name): no successful sync recorded"
+    if let last = record["last_success_at"] as? String { text = "\(name): last successful sync \(localTime(last))" }
+    if name == "Analytics", state == "syncing", let uploaded = record["last_upload_at"] as? String {
+      text += "\nLatest source acknowledged \(localTime(uploaded))."
+    }
+    if state == "error", let attempted = record["last_error_at"] as? String {
+      text += "\nLast attempt failed \(localTime(attempted)). Check the connection or private logs."
+    } else if state == "syncing", let attempted = record["last_attempt_at"] as? String {
+      text += "\nAttempt started \(localTime(attempted)); completion not yet recorded."
+    }
+    return text
+  }
+  func localTime(_ timestamp: String) -> String {
+    let parser = ISO8601DateFormatter()
+    parser.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    var date = parser.date(from: timestamp)
+    if date == nil { parser.formatOptions = [.withInternetDateTime]; date = parser.date(from: timestamp) }
+    guard let date = date else { return "at an unavailable time" }
+    let formatter = DateFormatter()
+    formatter.dateStyle = .medium
+    formatter.timeStyle = .short
+    return formatter.string(from: date)
+  }
+  @objc func toggleSync() {
+    if nextSyncAction == "pause" { pauseSync() } else if nextSyncAction == "resume" { resumeSync() }
+  }
+
   func localSettings() -> [String: Any]? {
     guard let data = try? Data(contentsOf: root.appendingPathComponent("team-agent.json")),
       let values = try? JSONSerialization.jsonObject(with: data) as? [String: Any]

@@ -13,7 +13,9 @@ import (
 // explicit model/counter weight; nil preserves incomplete denominator evidence.
 // Effort is a recorded grouping field, not an invented quota multiplier.
 type QuotaUsagePoint struct {
-	At                                             time.Time
+	At time.Time
+	// Bounds constrain a missing/undated source, never supply an invented point timestamp.
+	RangeStart, RangeEnd                           time.Time
 	Person, Device, Project, Model, Effort, Client string
 	Weight                                         *float64
 }
@@ -34,6 +36,8 @@ type QuotaEstimate struct {
 	From                      string            `json:"from"`
 	To                        string            `json:"to"`
 	ResetsAt                  *int64            `json:"resets_at"`
+	FromUsedPercent           *float64          `json:"from_used_percent,omitempty"`
+	ToUsedPercent             *float64          `json:"to_used_percent,omitempty"`
 	ObservedPercentagePoints  *float64          `json:"observed_percentage_points"`
 	EstimatedPercentagePoints *float64          `json:"estimated_percentage_points"`
 	Status                    string            `json:"status"`
@@ -86,13 +90,13 @@ func estimateQuotas(observations []NativeQuota, points []QuotaUsagePoint, from, 
 		sort.Slice(devices[device], func(i, j int) bool { return devices[device][i].ObservedAt.Before(devices[device][j].ObservedAt) })
 	}
 	bound := []quotaBoundPoint{}
-	undated := false
+	undated := []QuotaUsagePoint{}
 	for _, p := range points {
 		if !fullScope || !strings.EqualFold(p.Client, "codex") {
 			continue
 		}
 		if p.At.IsZero() {
-			undated = true
+			undated = append(undated, p)
 			continue
 		}
 		email, reason := quotaPointIdentity(p, devices[p.Device])
@@ -147,14 +151,28 @@ func estimateQuotas(observations []NativeQuota, points []QuotaUsagePoint, from, 
 			row.From = left.at.UTC().Format(time.RFC3339Nano)
 			row.To = right.at.UTC().Format(time.RFC3339Nano)
 			row.ResetsAt = right.window.ResetsAt
+			if !left.conflict && left.window.UsedPercent != nil && validQuotaPercent(*left.window.UsedPercent) {
+				row.FromUsedPercent = left.window.UsedPercent
+			}
+			if !right.conflict && right.window.UsedPercent != nil && validQuotaPercent(*right.window.UsedPercent) {
+				row.ToUsedPercent = right.window.UsedPercent
+			}
 			emitted = true
 			reason := quotaIntervalProblem(left, right, from, to)
 			if reason == "" {
 				delta := *right.window.UsedPercent - *left.window.UsedPercent
 				row.ObservedPercentagePoints = &delta
 			}
-			if undated {
-				reason = "undated_captured_usage"
+			if reason == "" {
+				for _, p := range undated {
+					// Unknown or inverted source bounds remain relevant everywhere.
+					// Include touching boundaries conservatively: upstream timestamps
+					// are not proof of exact provider-metering timing.
+					if p.RangeStart.IsZero() || p.RangeEnd.IsZero() || p.RangeEnd.Before(p.RangeStart) || (!p.RangeEnd.Before(left.at) && !p.RangeStart.After(right.at)) {
+						reason = "undated_captured_usage"
+						break
+					}
+				}
 			}
 			if reason == "" {
 				// A failed read has no account identity. Conservatively withhold intervals

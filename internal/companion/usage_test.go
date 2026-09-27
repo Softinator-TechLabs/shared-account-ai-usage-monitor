@@ -3,6 +3,7 @@ package companion
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/internal/agentsview"
 	c "github.com/Softinator-TechLabs/shared-account-ai-usage-monitor/internal/contracts"
 	"net/http"
@@ -178,5 +179,66 @@ func TestUsageCycleRefusesMissingAckAndCorruptCheckpoint(t *testing.T) {
 	before := reads
 	if _, err := cl.UsageCycle(context.Background(), av, path, 1); err == nil || reads != before {
 		t.Fatal("corrupt checkpoint silently ignored")
+	}
+}
+
+// Synthetic source yields one capture and then can fail the remainder of a backfill.
+type partialUsageSource struct{ err error }
+
+func (s partialUsageSource) CollectUsageEach(ctx context.Context, version int, skip func(string, string) (bool, error), emit func(c.UsageCapture) error) error {
+	if _, err := skip("synthetic", "revision"); err != nil {
+		return err
+	}
+	if err := emit(c.UsageCapture{SourceRef: "synthetic", Revision: "revision", PolicyVersion: version, Client: "codex"}); err != nil {
+		return err
+	}
+	return s.err
+}
+
+func TestUsageProgressOnlyAfterDurableAcknowledgement(t *testing.T) {
+	for _, tc := range []struct {
+		name, response string
+		wantProgress   int
+	}{
+		{"acknowledged", `{"id":"durable"}`, 1},
+		{"missing acknowledgement", `{}`, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			central := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/api/v1/device/policy" {
+					w.Write([]byte(`{"version":1,"content":"full","redaction":"none"}`))
+					return
+				}
+				w.Write([]byte(tc.response))
+			}))
+			defer central.Close()
+			cl, _ := New(central.URL, "")
+			dir := t.TempDir()
+			status := SyncStatusWriter{Path: filepath.Join(dir, "status.json")}
+			if err := status.Begin(); err != nil {
+				t.Fatal(err)
+			}
+			progress := 0
+			stats, err := cl.UsageCycleWithProgress(context.Background(), partialUsageSource{err: errors.New("later source failed")}, filepath.Join(dir, "checkpoint.json"), 1, func() {
+				progress++
+				if err := status.Uploaded(); err != nil {
+					t.Error(err)
+				}
+				fields := readStatusFields(t, status.Path)
+				if fields["state"] != "syncing" || fields["last_success_at"] != "" {
+					t.Errorf("partial upload claimed completion: %v", fields)
+				}
+			})
+			if err == nil || progress != tc.wantProgress || stats.Uploaded != tc.wantProgress {
+				t.Fatalf("stats=%+v progress=%d err=%v", stats, progress, err)
+			}
+			if err := status.Finish(err); err != nil {
+				t.Fatal(err)
+			}
+			fields := readStatusFields(t, status.Path)
+			if fields["state"] != "error" || fields["last_success_at"] != "" {
+				t.Fatal(fields)
+			}
+		})
 	}
 }

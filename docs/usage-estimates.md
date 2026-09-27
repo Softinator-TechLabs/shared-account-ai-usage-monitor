@@ -70,7 +70,7 @@ Charts and MCP retain the observed increase separately from the allocated estima
 
 Analytics remain subject to workspace visibility, device/person permissions, retention, deletion and policy redaction. Device upload credentials cannot read analytics. No raw prompts, real team identities or credentials belong in this public repository; examples here are synthetic. Discussion/coaching should use the full session context and delivered work evidence with human review, not language fluency or raw activity rank.
 
-The collector and AgentsView are independently versioned. We reuse AgentsView's public projection; upgrades are tested against synthetic contract fixtures and a local canary rather than auto-merging parser changes. An existing collector needs the enrichment-capable release before old sources gain prompt/effort/line metadata. Its `usage-v2` projection replaces each source snapshot instead of adding revision totals. Failed enrichment can retry during hourly reconciliation.
+The collector and AgentsView are independently versioned. We reuse AgentsView's public projection; upgrades are tested against synthetic contract fixtures and a local canary rather than auto-merging parser changes. An existing collector needs the enrichment-capable release before old sources gain prompt/effort/line metadata. Its `usage-v3` projection replaces each source snapshot instead of adding revision totals. Failed enrichment can retry during hourly reconciliation.
 
 ## Sources checked on 26 September 2026
 
@@ -80,3 +80,11 @@ The collector and AgentsView are independently versioned. We reuse AgentsView's 
 - [Claude usage and length limits](https://support.claude.com/en/articles/11647753-how-do-usage-and-length-limits-work)
 - [Antigravity plan changes](https://antigravity.google/blog/changes-to-antigravity-plans) and [plans](https://antigravity.google/docs/plans)
 - [AgentsView](https://www.agentsview.io/) — upstream session reader and normalization. See [upstream credits](../THIRD_PARTY_NOTICES.md).
+
+## Reading a newly reset account
+
+If the provider shows 97% remaining, it reports 3% used for that account window. A project pie showing 100% means all **captured weighted activity in the selected period** belongs to that project; it does not by itself assign all 3 percentage points. The reset window and selected period must match, quota observations must bracket the activity, and missing intervals must remain unallocated.
+
+Account summaries show the latest endpoint reading, the observed increase over captured same-cycle intervals and a project table of conditional allocated percentage points. For example, the first recorded reading might already be 2% used and a later one 3%. If the intervening activity is attributable to one project, the estimate can assign the **1 pp observed increase**; the earlier 2 pp stays unexplained. Choose a period containing the reset for context, and inspect interval coverage. Even sole use by one employee does not prove which project caused a provider debit.
+
+Missing usage is scoped to the source's reported start/end range, widened to include all dated token/activity evidence. An old incomplete session outside a new interval does not block that interval. Unknown/inverted bounds still block conservatively, and conflicting source copies contribute every copy's possible range. This requires collector v0.6.0 or later to recapture optional `ended_at` metadata. Upload time is never substituted for session end time.
