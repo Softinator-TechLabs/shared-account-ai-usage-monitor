@@ -5,6 +5,11 @@ test("activity charts and Mac setup replace the invitation-only action", async (
   await page.goto("/");
   await page.getByRole("button", { name: "Explore as owner" }).click();
   await expect(
+    page.getByRole("link", {
+      name: "Download Mac app, Apple silicon or Intel",
+    }),
+  ).toHaveAttribute("href", /releases\/tag\/v0\.7\.0-preview$/);
+  await expect(
     page.getByRole("heading", { name: "Workspace activity" }),
   ).toBeVisible();
   await expect(page.getByText("One account. More context.")).toHaveCount(0);
@@ -25,7 +30,7 @@ test("activity charts and Mac setup replace the invitation-only action", async (
   expect(downloads).toBe(0);
   await expect(
     dialog.getByRole("link", { name: "Download for Apple silicon" }),
-  ).toHaveAttribute("href", /AI-Usage-Monitor-mac-arm64.zip$/);
+  ).toHaveAttribute("href", /AI-Usage-Monitor-mac-arm64.dmg$/);
   const response = page.waitForResponse((r) =>
     r.url().endsWith("/invitations"),
   );
