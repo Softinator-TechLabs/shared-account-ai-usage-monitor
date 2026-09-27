@@ -4,11 +4,17 @@
   "scripts": {
     "test:ui": "playwright test",
     "format:check": "prettier --check internal/web/assets/*.{html,css,js} tests/browser/*.mjs",
-    "test:unit": "node --test tests/*.test.mjs"
+    "test:unit": "node --test tests/*.test.mjs",
+    "dev:public-site": "vite --config public-site/vite.config.ts",
+    "dev:public-docs": "vitepress dev public-site/docs",
+    "build:public-site": "vite build --config public-site/vite.config.ts && vitepress build public-site/docs && node public-site/export-docs.mjs",
+    "test:public-site": "playwright test --config playwright.public.config.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
-    "prettier": "^3.9.9"
+    "prettier": "^3.9.9",
+    "vite": "^8.3.1",
+    "vitepress": "^2.0.0-alpha.20"
   },
   "type": "module"
 }

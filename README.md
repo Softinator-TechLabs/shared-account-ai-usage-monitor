@@ -1,10 +1,12 @@
 # Shared Account AI Usage Monitor
 
-**Approved next direction:** reuse official AgentsView for central sessions, search and analytics; focus this project on people, shared-account evidence, quota history and coaching. See the [design and migration gates](docs/agentsview-first.md). The features below describe the current prototype, not a completed migration.
+**Current direction:** connect native coding-client sessions with people, projects, shared-account observations and coaching in one self-hosted workspace. The session reader is replaceable; see the [integration decision and migration gates](docs/agentsview-first.md). The features below describe the current prototype, not a completed migration.
 
 An experimental, self-hosted team archive for native subscription coding-agent sessions. Search full available prompts, inspect recorded models and projects, discuss individual messages, and give **separate prompt and delivered-work ratings** with evidence.
 
-Built with [AgentsView](https://github.com/kenn-io/agentsview) integration, an independent project by Kenn Software LLC. This is not an official AgentsView product. AgentsView stays separately installed and maintained upstream; this project owns the team layer.
+The current local session reader integrates with [AgentsView](https://github.com/kenn-io/agentsview), an independent project by Kenn Software LLC. It is separately installed and maintained upstream; this project owns the team identity, policy, account observations and coaching layer. The integration boundary can evolve. See [third-party notices](THIRD_PARTY_NOTICES.md).
+
+Public website and searchable docs: [usage.softinator.ai](https://usage.softinator.ai/), implemented independently in [`public-site/`](public-site/). The private team workspace runs at [usage.softinator.org](https://usage.softinator.org/).
 
 ## What works in the prototype
 

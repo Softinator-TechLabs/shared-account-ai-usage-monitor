@@ -1,4 +1,7 @@
 .local/
+.playwright-cli/
+/dist/
+/public-site/dist/
 .env
 .env.*
 !.env.example
