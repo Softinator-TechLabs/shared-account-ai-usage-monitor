@@ -237,6 +237,7 @@ const when = (value) => {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    ...(typeof value === "number" ? { second: "2-digit" } : {}),
     hourCycle: "h23",
   });
 };
@@ -249,8 +250,14 @@ const reasonLabel = (value) => label(value).replaceAll("_", " ");
 function quotaGroup(group) {
   const estimate = group.rows[0];
   const available = group.rows.filter(availableEstimate);
-  const observed = available.length
-    ? available.reduce((sum, row) => sum + row.observed_percentage_points, 0)
+  const observedIntervals = group.rows.filter((row) =>
+    known(row.observed_percentage_points),
+  );
+  const observed = observedIntervals.length
+    ? observedIntervals.reduce(
+        (sum, row) => sum + row.observed_percentage_points,
+        0,
+      )
     : null;
   const estimated = available.length
     ? available.reduce((sum, row) => sum + row.estimated_percentage_points, 0)
@@ -269,7 +276,7 @@ function quotaGroup(group) {
     ),
     el(
       "p",
-      `${exactNumber(available.length)} available intervals · ${exactNumber(group.rows.length - available.length)} excluded intervals. Totals cover available intervals only.`,
+      `${exactNumber(observedIntervals.length)} observed intervals · ${exactNumber(available.length)} allocated intervals · ${exactNumber(group.rows.length - available.length)} excluded from allocation. Totals cover these intervals only.`,
       "chart-caption",
     ),
   );
@@ -410,7 +417,7 @@ export function renderQuotaEstimates(estimates) {
     el("summary", "Quota estimate method"),
     el(
       "p",
-      "Only available same-cycle intervals contribute to totals. Percentage points describe increases, not remaining allowance. Estimated allocations are proportional to captured associated weights; other devices or provider surfaces may be missing. Excluded intervals remain unallocated. Details show at most 50 recent intervals and 50 largest allocations per account window.",
+      "Observed totals include recorded same-cycle increases, even when allocation is withheld. Estimated totals include only allocated intervals. Neither total proves full-period coverage. Percentage points describe increases, not remaining allowance. Estimated allocations are proportional to captured associated weights; other devices or provider surfaces may be missing. Excluded intervals remain unallocated. Details show at most 50 recent intervals and 50 largest allocations per account window.",
     ),
   );
   section.append(count, root, more, method);
