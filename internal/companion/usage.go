@@ -28,6 +28,12 @@ type usageCheckpoint map[string]usageCheckpointEntry
 // policy verification it reads no upstream usage. Captures remain reconstructible
 // at the source; only durable server acknowledgements advance this checkpoint.
 func (cl *Client) UsageCycle(ctx context.Context, source UsageSource, path string, version int) (UsageStats, error) {
+	return cl.UsageCycleWithProgress(ctx, source, path, version, nil)
+}
+
+// UsageCycleWithProgress reports each durable source upload without treating partial
+// backfill progress as successful completion. The callback must not interrupt collection.
+func (cl *Client) UsageCycleWithProgress(ctx context.Context, source UsageSource, path string, version int, uploaded func()) (UsageStats, error) {
 	stats := UsageStats{}
 	var acknowledgedPolicy c.Policy
 	checkPolicy := func() error {
@@ -94,6 +100,9 @@ func (cl *Client) UsageCycle(ctx context.Context, source UsageSource, path strin
 			stats.Suppressed++
 		} else {
 			stats.Uploaded++
+			if uploaded != nil {
+				uploaded()
+			}
 		}
 		return nil
 	})

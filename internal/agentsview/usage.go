@@ -59,7 +59,7 @@ func (client *Client) CollectUsageEach(ctx context.Context, version int, skip fu
 				return errors.New("usage source identity missing")
 			}
 			metadata, _ := json.Marshal(session)
-			sum := sha256.Sum256(append([]byte("usage-v2:"), metadata...))
+			sum := sha256.Sum256(append([]byte("usage-v3:"), metadata...))
 			revision := hex.EncodeToString(sum[:])
 			if skip != nil {
 				yes, err := skip(session.ID, revision)
@@ -98,7 +98,7 @@ func (client *Client) CollectUsageEach(ctx context.Context, version int, skip fu
 }
 
 func (client *Client) collectUsage(ctx context.Context, s usageSession, revision string, version int) (c.UsageCapture, error) {
-	out := c.UsageCapture{SourceRef: s.ID, Revision: revision, PolicyVersion: version, Client: s.Agent, Project: s.Project, Branch: s.Branch, StartedAt: s.Started, ObservedAt: time.Now().UTC(), Messages: s.Messages, Prompts: s.Prompts, Coverage: "reported", Points: []c.UsagePoint{}}
+	out := c.UsageCapture{SourceRef: s.ID, Revision: revision, PolicyVersion: version, Client: s.Agent, Project: s.Project, Branch: s.Branch, StartedAt: s.Started, EndedAt: s.Ended, ObservedAt: time.Now().UTC(), Messages: s.Messages, Prompts: s.Prompts, Coverage: "reported", Points: []c.UsagePoint{}}
 	var usage struct {
 		Count        *int  `json:"breakdown_count"`
 		HasTokenData *bool `json:"has_token_data"`

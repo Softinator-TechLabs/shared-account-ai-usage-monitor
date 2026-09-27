@@ -26,7 +26,7 @@ func TestUsageProjectionPaginationAndUnknown(t *testing.T) {
 				w.Write([]byte(`{"sessions":[{"id":"unsupported","agent":"other"}]}`))
 				return
 			}
-			w.Write([]byte(`{"sessions":[{"id":"codex:synthetic","agent":"codex","project":"demo","git_branch":"main","message_count":4,"user_message_count":2,"transcript_revision":"r1","first_message":"PRIVATE PROMPT"}],"next_cursor":"next"}`))
+			w.Write([]byte(`{"sessions":[{"id":"codex:synthetic","agent":"codex","project":"demo","git_branch":"main","started_at":"2026-09-25T10:00:00Z","ended_at":"2026-09-25T11:00:00Z","message_count":4,"user_message_count":2,"transcript_revision":"r1","first_message":"PRIVATE PROMPT"}],"next_cursor":"next"}`))
 		case "/api/v1/sessions/codex:synthetic/usage":
 			if r.URL.Query().Get("breakdown") != "true" || r.URL.Query().Has("subagents") || r.URL.Query().Has("rollup") {
 				t.Error("wrong usage query")
@@ -60,6 +60,9 @@ func TestUsageProjectionPaginationAndUnknown(t *testing.T) {
 		t.Fatal("unknown turned into zero")
 	}
 	body, _ := json.Marshal(captures)
+	if !strings.Contains(string(body), `"ended_at":"2026-09-25T11:00:00Z"`) {
+		t.Fatal("source time bounds lost in usage projection")
+	}
 	if strings.Contains(string(body), "PRIVATE") || strings.Contains(string(body), "cost") || strings.Contains(string(body), "raw") {
 		t.Fatal("private or price fields retained")
 	}

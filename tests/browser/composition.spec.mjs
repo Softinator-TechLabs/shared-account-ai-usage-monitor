@@ -352,7 +352,9 @@ test("quota summaries bound long interval lists, exclude missing observations an
   await expect(groups.first()).toContainText(
     "1,000 observed intervals · 1,000 allocated intervals · 1 excluded from allocation",
   );
-  await expect(groups.first().getByRole("table")).toHaveCount(0);
+  await expect(
+    groups.first().locator(".quota-interval-details table"),
+  ).toHaveCount(0);
   await groups
     .first()
     .getByText("Interval details (1,001)", { exact: true })
@@ -425,4 +427,75 @@ test("valid observed quota remains visible when undated capture withholds alloca
   await expect(groups.last()).toContainText(
     "2 observed intervals · 1 allocated intervals · 1 excluded from allocation",
   );
+});
+
+test("account used percent is separate from captured project allocation", async ({
+  page,
+}) => {
+  await fixture(page, {
+    quotaEstimates: [
+      {
+        ...estimates[0],
+        from_used_percent: 2,
+        to_used_percent: 3,
+        observed_percentage_points: 1,
+        estimated_percentage_points: 1,
+        allocations: [
+          {
+            person,
+            project: "synthetic/api",
+            model: "synthetic-model-a",
+            effort: "high",
+            percentage_points: 1,
+          },
+        ],
+      },
+    ],
+  });
+  const account = page.locator(".quota-estimate-interval");
+  await expect(account).toContainText("Account used at last reading: 3%");
+  await expect(account).toContainText("Observed account increase: 1 pp");
+  await expect(
+    account.getByRole("table", {
+      name: "Project allocation for captured intervals",
+    }),
+  ).toContainText("synthetic/api");
+  await expect(
+    account.getByRole("table", {
+      name: "Project allocation for captured intervals",
+    }),
+  ).toContainText("1 pp");
+  await expect(account).toContainText(
+    "This is a partial-period allocation, not a breakdown of the entire 3% used.",
+  );
+});
+
+test("unavailable allocation keeps current used percent without converting the activity pie", async ({
+  page,
+}) => {
+  await fixture(page, {
+    quotaEstimates: [
+      {
+        ...estimates[0],
+        from_used_percent: 2,
+        to_used_percent: 3,
+        observed_percentage_points: 1,
+        estimated_percentage_points: null,
+        status: "unavailable",
+        reason: "undated_captured_usage",
+        allocations: [],
+      },
+    ],
+  });
+  const account = page.locator(".quota-estimate-interval");
+  await expect(account).toContainText("Account used at last reading: 3%");
+  await expect(account).toContainText(
+    "Project allocation unavailable for these intervals.",
+  );
+  await expect(
+    account.getByRole("table", {
+      name: "Project allocation for captured intervals",
+    }),
+  ).toHaveCount(0);
+  await expect(account).toContainText("Conditional estimate: Unknown");
 });

@@ -1,6 +1,7 @@
 package store
 
 import (
+	"encoding/json"
 	"math"
 	"testing"
 	"time"
@@ -174,5 +175,73 @@ func TestQuotaEstimatesCannotAssignUsageAcrossDifferentBuckets(t *testing.T) {
 		if row.Status != "unavailable" || len(row.Allocations) != 0 {
 			t.Fatalf("usage lacks a bucket binding: %+v", row)
 		}
+	}
+}
+
+func TestQuotaEstimateEndpointReadingsPreserveMissingBaseline(t *testing.T) {
+	obs, points, from, to := quotaEstimateFixture()
+	points[0].Weight = nil // Provider readings survive a withheld allocation.
+	rows := estimateQuotas(obs, points, from, to, UsageFilter{}, true)
+	body, _ := json.Marshal(rows[0])
+	var wire map[string]any
+	if err := json.Unmarshal(body, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if wire["from_used_percent"] != float64(20) || wire["to_used_percent"] != float64(24) || rows[0].EstimatedPercentagePoints != nil {
+		t.Fatalf("missing raw endpoint readings: %s", body)
+	}
+	// A first reading of 3% cannot create a synthetic zero baseline or delta.
+	used := 3.0
+	obs[1].Windows[0].UsedPercent = &used
+	rows = estimateQuotas(obs[1:2], points, from, to, UsageFilter{}, true)
+	if len(rows) != 1 || rows[0].Reason != "missing_quota_bounds" || rows[0].ObservedPercentagePoints != nil || rows[0].EstimatedPercentagePoints != nil {
+		t.Fatalf("invented initial three points: %+v", rows)
+	}
+}
+
+func TestQuotaEstimatesBoundedUnknownSourcesAffectOnlyOverlappingIntervals(t *testing.T) {
+	obs, points, from, to := quotaEstimateFixture()
+	next := to.Add(10 * time.Minute)
+	for _, i := range []int{1, 3} {
+		o := obs[i]
+		o.ObservedAt = next
+		o.Windows = append([]quota.Window(nil), o.Windows...)
+		used := 28.0
+		o.Windows[0].UsedPercent = &used
+		obs = append(obs, o)
+	}
+	nextPoint := points[0]
+	nextPoint.At = to.Add(4 * time.Minute)
+	points = append(points, nextPoint)
+	// No exact timestamp is invented for this incomplete source. Only the first
+	// observed interval overlaps its possible source range.
+	points = append(points, QuotaUsagePoint{Client: "codex", RangeStart: from.Add(time.Minute), RangeEnd: from.Add(2 * time.Minute)})
+	rows := estimateQuotas(obs, points, from, next, UsageFilter{}, true)
+	if len(rows) != 2 || rows[0].Status != "unavailable" || rows[1].Status != "estimated" || rows[1].EstimatedPercentagePoints == nil || *rows[1].EstimatedPercentagePoints != 4 {
+		t.Fatalf("source blocker escaped its interval: %+v", rows)
+	}
+}
+
+func TestQuotaEstimateEndpointReadingsRejectInvalidAndConflictingValues(t *testing.T) {
+	for _, mode := range []string{"invalid", "conflicting", "missing"} {
+		t.Run(mode, func(t *testing.T) {
+			obs, points, from, to := quotaEstimateFixture()
+			switch mode {
+			case "invalid":
+				invalid := -1.0
+				obs[1].Windows[0].UsedPercent = &invalid
+				obs[3].Windows[0].UsedPercent = &invalid
+			case "conflicting":
+				other := 25.0
+				obs[3].Windows[0].UsedPercent = &other
+			case "missing":
+				obs[1].Windows[0].UsedPercent = nil
+				obs[3].Windows[0].UsedPercent = nil
+			}
+			rows := estimateQuotas(obs, points, from, to, UsageFilter{}, true)
+			if len(rows) != 1 || rows[0].FromUsedPercent == nil || *rows[0].FromUsedPercent != 20 || rows[0].ToUsedPercent != nil || rows[0].ObservedPercentagePoints != nil {
+				t.Fatalf("unreliable endpoints emitted: %+v", rows)
+			}
+		})
 	}
 }

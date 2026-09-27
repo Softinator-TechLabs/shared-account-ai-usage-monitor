@@ -199,11 +199,11 @@ func TestUsageVersionedSkipPreservesSuppression(t *testing.T) {
 			defer server.Close()
 			client, _ := New(server.URL, "")
 			metadata, _ := json.Marshal(s)
-			sum := sha256.Sum256(append([]byte("usage-v2:"), metadata...))
+			sum := sha256.Sum256(append([]byte("usage-v3:"), metadata...))
 			want := hex.EncodeToString(sum[:])
 			err := client.CollectUsageEach(context.Background(), 1, func(id, got string) (bool, error) {
 				if got != want {
-					t.Fatalf("revision %s != usage-v2 %s", got, want)
+					t.Fatalf("revision %s != usage-v3 %s", got, want)
 				}
 				return true, nil
 			}, func(c.UsageCapture) error { t.Fatal("suppressed source emitted"); return nil })
@@ -286,5 +286,27 @@ func TestUsageActivityUnboundAssistantPromptCountStaysUnknown(t *testing.T) {
 				t.Fatal("unbound model/date gained zero prompt metadata")
 			}
 		}
+	}
+}
+
+// Acknowledgements for the old projection must not suppress the new time bounds.
+func TestUsageOldProjectionAcknowledgementDoesNotSuppressSourceBounds(t *testing.T) {
+	s := usageSession{ID: "synthetic-bounds", Agent: "codex", Started: "2026-09-25T10:00:00Z", Ended: "2026-09-25T11:00:00Z"}
+	metadata, _ := json.Marshal(s)
+	sum := sha256.Sum256(append([]byte("usage-v2:"), metadata...))
+	oldRevision := hex.EncodeToString(sum[:])
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/sessions" {
+			json.NewEncoder(w).Encode(map[string]any{"sessions": []usageSession{s}})
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer server.Close()
+	client, _ := New(server.URL, "")
+	var got []c.UsageCapture
+	err := client.CollectUsageEach(context.Background(), 1, func(id, revision string) (bool, error) { return revision == oldRevision, nil }, func(v c.UsageCapture) error { got = append(got, v); return nil })
+	if err != nil || len(got) != 1 || got[0].EndedAt != "2026-09-25T11:00:00Z" {
+		t.Fatalf("old projection prevented bounded recapture: %+v %v", got, err)
 	}
 }

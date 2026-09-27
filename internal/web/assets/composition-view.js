@@ -262,6 +262,10 @@ function quotaGroup(group) {
   const estimated = available.length
     ? available.reduce((sum, row) => sum + row.estimated_percentage_points, 0)
     : null;
+  const latest = [...group.rows].sort(
+    (a, b) => new Date(b.to) - new Date(a.to),
+  )[0];
+  const used = known(latest.to_used_percent) ? latest.to_used_percent : null;
   const interval = el("article", undefined, "quota-estimate-interval");
   interval.append(
     el("h3", `${clientName(estimate.provider)} · ${label(estimate.email)}`),
@@ -280,6 +284,13 @@ function quotaGroup(group) {
       "chart-caption",
     ),
   );
+  if (used !== null) {
+    const reading = el(
+      "p",
+      `Account used at last reading: ${exactNumber(used)}% · ${when(latest.to)} IST`,
+    );
+    interval.insertBefore(reading, interval.children[2]);
+  }
   const reasons = new Map();
   group.rows
     .filter((row) => !availableEstimate(row))
@@ -318,6 +329,25 @@ function quotaGroup(group) {
         allocations.get(key).value += allocation.percentage_points;
     }
   if (allocations.size) {
+    const projects = new Map();
+    for (const row of allocations.values())
+      projects.set(
+        row.labels[1],
+        (projects.get(row.labels[1]) || 0) + row.value,
+      );
+    const projectRows = [...projects].sort((a, b) => b[1] - a[1]).slice(0, 20);
+    interval.append(
+      table(
+        ["Project", "Estimated allowance used"],
+        projectRows.map(([project, value]) => [project, points(value)]),
+        "Project allocation for captured intervals",
+      ),
+      el(
+        "p",
+        `Showing ${projectRows.length} of ${projects.size} projects from allocated intervals in this view. ${used !== null ? `This is a partial-period allocation, not a breakdown of the entire ${exactNumber(used)}% used.` : "This does not establish full reset-window consumption."}`,
+        "chart-caption",
+      ),
+    );
     const details = el("details", undefined, "composition-details");
     details.append(el("summary", "Allocation details"));
     details.addEventListener("toggle", () => {
@@ -341,6 +371,14 @@ function quotaGroup(group) {
     });
     interval.append(details);
   }
+  if (!allocations.size)
+    interval.append(
+      el(
+        "p",
+        "Project allocation unavailable for these intervals. A 100% activity pie cannot fill missing quota evidence.",
+        "chart-caption",
+      ),
+    );
   const details = el(
     "details",
     undefined,
@@ -399,7 +437,11 @@ export function renderQuotaEstimates(estimates) {
     if (!grouped.has(key)) grouped.set(key, { rows: [] });
     grouped.get(key).rows.push(row);
   }
-  const groups = [...grouped.values()];
+  const groups = [...grouped.values()].sort(
+    (a, b) =>
+      Math.max(...b.rows.map((row) => new Date(row.to).getTime() || 0)) -
+      Math.max(...a.rows.map((row) => new Date(row.to).getTime() || 0)),
+  );
   const count = el("p", undefined, "chart-caption");
   const root = el("div");
   const more = el("button", "Show more account windows");

@@ -76,3 +76,33 @@ func TestOfflineQuotaCaptureUsesAcknowledgedPolicyButDenialStopsIt(t *testing.T)
 		t.Fatal("denial allowed capture")
 	}
 }
+
+func TestQuotaReadFailureDeliveredWithoutClaimingSuccessfulCycle(t *testing.T) {
+	count := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/device/policy" {
+			json.NewEncoder(w).Encode(c.Policy{Version: 1})
+			return
+		}
+		var observation c.QuotaObservation
+		if err := json.NewDecoder(r.Body).Decode(&observation); err != nil {
+			t.Error(err)
+		}
+		if observation.Error != "unavailable" {
+			t.Errorf("missing safe read-failure observation: %+v", observation)
+		}
+		count++
+		json.NewEncoder(w).Encode(map[string]string{"id": "saved"})
+	}))
+	defer srv.Close()
+	cl, _ := New(srv.URL, "synthetic")
+	q := &spool.Queue{Dir: t.TempDir(), MaxBytes: 1 << 20}
+	err := cl.QuotaCycle(context.Background(), q, 1, []CodexProfile{{Label: "synthetic", Executable: "/missing/synthetic-codex", Home: t.TempDir()}})
+	if err == nil {
+		t.Fatal("delivered error observation falsely marked cycle successful")
+	}
+	rows, pendingErr := q.Pending()
+	if pendingErr != nil || len(rows) != 0 || count != 1 {
+		t.Fatalf("error record stranded: queued=%d delivered=%d err=%v", len(rows), count, pendingErr)
+	}
+}

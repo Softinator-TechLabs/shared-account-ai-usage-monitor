@@ -131,8 +131,13 @@ func run() error {
 			return errors.New("analytics collector already running or stale lock")
 		}
 		defer os.Remove(lock)
+		status := companion.SyncStatusWriter{Path: *path + ".analytics-status.json"}
 		for {
-			stats, err := cl.UsageCycle(ctx, av, *path+".analytics.checkpoint.json", cfg.Policy.Version)
+			reportStatusWrite(status.Begin())
+			stats, err := cl.UsageCycleWithProgress(ctx, av, *path+".analytics.checkpoint.json", cfg.Policy.Version, func() {
+				reportStatusWrite(status.Uploaded())
+			})
+			reportStatusWrite(status.Finish(err))
 			log.Printf("Analytics sources: scanned=%d uploaded=%d unchanged=%d suppressed=%d", stats.Scanned, stats.Uploaded, stats.Skipped, stats.Suppressed)
 			if command == "analytics-once" {
 				return err
@@ -162,11 +167,14 @@ func run() error {
 		}
 		defer os.Remove(lock)
 		queue := &spool.Queue{Dir: *path + ".quota.queue", MaxBytes: 16 << 20}
+		status := companion.SyncStatusWriter{Path: *path + ".quota-status.json"}
 		for {
 			if len(cfg.CodexProfiles) == 0 {
 				cfg.CodexProfiles = companion.DefaultCodexProfile()
 			}
+			reportStatusWrite(status.Begin())
 			err := cl.QuotaCycle(ctx, queue, cfg.Policy.Version, cfg.CodexProfiles)
+			reportStatusWrite(status.Finish(err))
 			if command == "quota-once" {
 				return err
 			}
@@ -437,4 +445,11 @@ func saveCheckpoint(path string, value map[string]string) error {
 		return closed
 	}
 	return os.Rename(f.Name(), path)
+}
+
+// Do not leak config paths or source metadata through a local status failure.
+func reportStatusWrite(err error) {
+	if err != nil {
+		log.Print("collector status could not be saved")
+	}
 }
